@@ -1,0 +1,7 @@
+{
+"label":"Game Boy",
+"launch":"launch.sh",
+"rompath":"../../Roms/GB",
+"imgpath":"../../Roms/GB/Imgs",
+"extlist":"gb|gbc|zip|7z"
+}

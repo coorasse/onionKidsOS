@@ -1,0 +1,8 @@
+# Games visible to the kid, one per line, relative to Roms/
+Game Boy (GB)/Tetris.gb
+Game Boy Advance (GBA)/Pokemon Emerald.gba
+Game Boy Advance (GBA)/Mario Kart Super Circuit.gba
+Super Nintendo (SFC)/Super Mario World.sfc
+Sega Genesis (MD)/Sonic the Hedgehog 2.md
+Sony PlayStation (PS)/Crash Bandicoot.cue
+Arcade (FBN)/Street Fighter II.zip

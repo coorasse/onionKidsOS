@@ -1,0 +1,5 @@
+# Kids OS settings. Lines are key=value.
+# Arcade coins the kid may insert per day (0 = unlimited).
+arcade_coins_per_day=10
+# Systems whose games use coins, by folder tag.
+arcade_systems=ARCADE,CPS1,CPS2,CPS3,NEOGEO,FBN,FBNEO,MAME

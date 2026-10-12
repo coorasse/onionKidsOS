@@ -1,0 +1,7 @@
+{
+"label":"NES",
+"launch":"launch.sh",
+"rompath":"../../Roms/FC",
+"imgpath":"../../Roms/FC/Imgs",
+"extlist":"nes|fds|unf|zip|7z"
+}

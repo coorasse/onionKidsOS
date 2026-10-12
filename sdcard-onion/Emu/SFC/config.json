@@ -1,0 +1,7 @@
+{
+"label":"Super Nintendo",
+"launch":"launch.sh",
+"rompath":"../../Roms/SFC",
+"imgpath":"../../Roms/SFC/Imgs",
+"extlist":"smc|fig|sfc|gd3|gd7|dx2|bsx|swc|zip|7z"
+}

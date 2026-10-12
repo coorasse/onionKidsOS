@@ -1,0 +1,7 @@
+{"label":"Tetris","launch":"/mnt/SDCARD/Emu/GB/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/GB/../../Roms/GB/Imgs/Tetris.png","rompath":"/mnt/SDCARD/Emu/GB/../../Roms/GB/Tetris.gb"}
+{"label":"Pokemon Emerald","launch":"/mnt/SDCARD/Emu/GBA/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/GBA/../../Roms/GBA/Imgs/Pokemon Emerald.png","rompath":"/mnt/SDCARD/Emu/GBA/../../Roms/GBA/Pokemon Emerald.gba"}
+{"label":"Mario Kart Super Circuit","launch":"/mnt/SDCARD/Emu/GBA/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/GBA/../../Roms/GBA/Imgs/Mario Kart Super Circuit.png","rompath":"/mnt/SDCARD/Emu/GBA/../../Roms/GBA/Mario Kart Super Circuit.gba"}
+{"label":"Super Mario World","launch":"/mnt/SDCARD/Emu/SFC/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/SFC/../../Roms/SFC/Imgs/Super Mario World.png","rompath":"/mnt/SDCARD/Emu/SFC/../../Roms/SFC/Super Mario World.sfc"}
+{"label":"Sonic the Hedgehog 2","launch":"/mnt/SDCARD/Emu/MD/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/MD/../../Roms/MD/Imgs/Sonic the Hedgehog 2.png","rompath":"/mnt/SDCARD/Emu/MD/../../Roms/MD/Sonic the Hedgehog 2.md"}
+{"label":"Crash Bandicoot","launch":"/mnt/SDCARD/Emu/PS/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/PS/../../Roms/PS/Imgs/Crash Bandicoot.png","rompath":"/mnt/SDCARD/Emu/PS/../../Roms/PS/Crash Bandicoot.cue"}
+{"label":"Street Fighter II","launch":"/mnt/SDCARD/Emu/ARCADE/launch.sh","type":5,"imgpath":"/mnt/SDCARD/Emu/ARCADE/../../Roms/ARCADE/Imgs/Street Fighter II.png","rompath":"/mnt/SDCARD/Emu/ARCADE/../../Roms/ARCADE/Street Fighter II.zip"}

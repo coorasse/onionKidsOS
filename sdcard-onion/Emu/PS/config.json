@@ -1,0 +1,7 @@
+{
+"label":"PlayStation",
+"launch":"launch.sh",
+"rompath":"../../Roms/PS",
+"imgpath":"../../Roms/PS/Imgs",
+"extlist":"bin|cue|img|mdf|pbp|toc|cbn|m3u|ccd|chd|zip|7z"
+}

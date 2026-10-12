@@ -1,0 +1,7 @@
+{
+"label":"Game Boy Advance",
+"launch":"launch.sh",
+"rompath":"../../Roms/GBA",
+"imgpath":"../../Roms/GBA/Imgs",
+"extlist":"bin|gba|zip|7z"
+}

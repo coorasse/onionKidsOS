@@ -1,0 +1,7 @@
+{
+"label":"Arcade",
+"launch":"launch.sh",
+"rompath":"../../Roms/ARCADE",
+"imgpath":"../../Roms/ARCADE/Imgs",
+"extlist":"zip|7z"
+}

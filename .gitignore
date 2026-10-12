@@ -1,0 +1,5 @@
+build/
+shots/
+*.o
+.DS_Store
+toolchains/
