@@ -52,6 +52,14 @@ there. POWER saves too and switches the console off; at the next power on the ga
   <img src="docs/images/parent-hold.png" width="400" alt="Holding SELECT and START">
 </p>
 
+Behind it is plain Onion in the KidsOS colours. The *Apps* tab has a **KidsOS** entry with the few
+things a parent needs: back to the kids screen and the arcade coins.
+
+<p align="center">
+  <img src="docs/images/onion-menu.png" width="320" alt="Onion's menu in the KidsOS theme">
+  <img src="docs/images/kidsos-app.png" width="320" alt="The KidsOS app in Onion">
+</p>
+
 | Button | What it does |
 |--------|--------------|
 | Left / Right | Pick a game |
@@ -129,6 +137,10 @@ It takes about fifteen minutes, most of it waiting.
 
 To remove a game, do the same and pick *Remove from favorites*.
 
+<p align="center">
+  <img src="docs/images/onion-apps.png" width="400" alt="The KidsOS entry in Onion's Apps tab">
+</p>
+
 ### Pictures for the games
 
 Turn on Wi-Fi once: hold **SELECT + START**, open *Apps* › *Tweaks* › *Network*, turn Wi-Fi on and pick
@@ -153,6 +165,10 @@ Wi-Fi "the next day" means the next time it's turned on.
 To change the number on the console: hold **SELECT + START**, open the *Apps* tab and start **KidsOS**. You
 can set the coins per day (3 to 30, or no limit), hand out today's coins again, and go back to the kids
 screen.
+
+<p align="center">
+  <img src="docs/images/kidsos-coins.png" width="400" alt="Choosing the coins per day">
+</p>
 
 Or edit `kids/settings.txt` at the root of the card with a text editor. The file is created the first time
 KidsOS starts and looks like this:
