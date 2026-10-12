@@ -18,14 +18,14 @@ printf 'savestate_thumbnail_enable = "false"\n' > /tmp/kidsos_ra.cfg
 sh "$SYS/script/patch_ra_cfg.sh" /tmp/kidsos_ra.cfg > /dev/null && echo "RetroArch thumbnails back to default"
 rm -f /tmp/kidsos_ra.cfg
 mw=$CONFIG/display/meterWidth
-if [ -f "$mw.kidsos-orig" ]; then mv "$mw.kidsos-orig" "$mw"; elif [ -f "$mw.kidsos-none" ]; then rm -f "$mw" "$mw.kidsos-none"; fi
-for orig in /mnt/SDCARD/Saves/CurrentProfile/config/*/*.cfg.kidsos-orig; do
-	[ -f "$orig" ] && mv -f "$orig" "${orig%.kidsos-orig}"
-done
-for none in /mnt/SDCARD/Saves/CurrentProfile/config/*/*.cfg.kidsos-none; do
-	[ -f "$none" ] && rm -f "$none" "${none%.kidsos-none}"
-done
+if [ -f "$mw.kidsos-orig" ]; then
+	mv "$mw.kidsos-orig" "$mw"
+elif [ -f "$mw.kidsos-none" ]; then
+	rm -f "$mw" "$mw.kidsos-none"
+fi
 rm -f "$SYS/startup/kidsos.sh" && echo "startup hook removed"
+rm -rf /mnt/SDCARD/App/KidsOS && echo "KidsOS app removed"
+rm -f /mnt/SDCARD/Saves/CurrentProfile/theme/skin/extra/bootScreen.png && echo "boot screen restored"
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null
 rm -rf /mnt/SDCARD/.kidsos
 sync

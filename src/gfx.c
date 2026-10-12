@@ -395,6 +395,57 @@ SDL_Surface *gfx_icon_speaker(int size, uint32_t rgb, int waves)
 	return icon_from(size, rgb, speaker_inside, shape);
 }
 
+/* A Mario-style coin: an upright gold oval with a dark rim and an inner ring, grey once spent. */
+static uint32_t coin_sample(float x, float y, float s, int grey)
+{
+	const uint32_t rim = grey ? 0x6E6A62 : 0x7A4A00, body = grey ? 0xCFC8BD : 0xFFC928;
+	const uint32_t ring = grey ? 0xA8A196 : 0xD98E00, shine = grey ? 0xE6E1D8 : 0xFFF1A8;
+	float dx = x - s / 2, dy = y - s / 2;
+	float rx = s * 0.36f, ry = s * 0.47f, t = s * 0.06f;
+	float outer = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+	if (outer > 1) return 0;
+	float inner = (dx * dx) / ((rx - t) * (rx - t)) + (dy * dy) / ((ry - t) * (ry - t));
+	if (inner > 1) return rim;
+	float hx = dx + s * 0.11f, hy = dy + s * 0.2f;
+	if ((hx * hx) / (s * s * 0.004f) + (hy * hy) / (s * s * 0.01f) <= 1) return shine;
+	float ax = s * 0.17f, ay = s * 0.30f, w = s * 0.055f;
+	float o = (dx * dx) / (ax * ax) + (dy * dy) / (ay * ay);
+	float i = (dx * dx) / ((ax - w) * (ax - w)) + (dy * dy) / ((ay - w) * (ay - w));
+	return o <= 1 && i > 1 ? ring : body;
+}
+
+SDL_Surface *gfx_icon_coin(int size, int grey)
+{
+	SDL_Surface *s = gfx_new_surface(size, size);
+	if (!s) return NULL;
+	SDL_LockSurface(s);
+	uint32_t *p = s->pixels;
+	int pitch = s->pitch / 4;
+	for (int y = 0; y < size; y++) {
+		for (int x = 0; x < size; x++) {
+			unsigned hits = 0, r = 0, g = 0, b = 0;
+			for (int sy = 0; sy < SS; sy++)
+				for (int sx = 0; sx < SS; sx++) {
+					uint32_t c = coin_sample((float)x + ((float)sx + 0.5f) / SS, (float)y + ((float)sy + 0.5f) / SS,
+					                         (float)size, grey);
+					if (!c) continue;
+					hits++;
+					r += c >> 16 & 0xFF;
+					g += c >> 8 & 0xFF;
+					b += c & 0xFF;
+				}
+			if (!hits) {
+				p[y * pitch + x] = 0;
+				continue;
+			}
+			uint32_t a = hits * 255 / (SS * SS);
+			p[y * pitch + x] = a << 24 | (r / hits) << 16 | (g / hits) << 8 | (b / hits);
+		}
+	}
+	SDL_UnlockSurface(s);
+	return s;
+}
+
 void gfx_button_hint(int x, int y, const char *letter, uint32_t rgb, const char *action, int align)
 {
 	const int r = 15, gap = 8;

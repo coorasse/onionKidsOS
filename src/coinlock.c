@@ -42,3 +42,14 @@ int SDL_PollEvent(SDL_Event *event)
 		if (!got || !event || !locked() || !is_coin(event)) return got;
 	}
 }
+
+/* RetroArch's sdl_dingux driver does not read the events, it looks at SDL's key state array after
+ * pumping them, so the coin key is cleared there as well */
+Uint8 *SDL_GetKeyState(int *numkeys)
+{
+	static Uint8 *(*real)(int *);
+	if (!real) real = dlsym(RTLD_NEXT, "SDL_GetKeyState");
+	Uint8 *state = real(numkeys);
+	if (state && locked()) state[COIN_KEY] = 0;
+	return state;
+}

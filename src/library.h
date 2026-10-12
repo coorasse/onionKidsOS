@@ -51,6 +51,8 @@ void library_load_enabled(const char *root);
 void library_recount(void);
 int library_enabled(Game **out, int max);
 SDL_Surface *game_cover(Game *g);
+/* Covers downloaded in the background since the last call (Onion: covers.sh) are picked up. */
+int library_covers_refresh(void);
 /* An auto save state exists for the game (Onion only), its thumbnail if RetroArch wrote one. */
 int game_resume_available(Game *g);
 SDL_Surface *game_resume_screen(Game *g);

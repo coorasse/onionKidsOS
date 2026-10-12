@@ -40,6 +40,8 @@ uint32_t gfx_hsv(float h, float s, float v);
 SDL_Surface *gfx_icon_play(int size, uint32_t rgb);
 SDL_Surface *gfx_icon_restart(int size, uint32_t rgb);
 SDL_Surface *gfx_icon_speaker(int size, uint32_t rgb, int waves);
+/* A Mario-style coin, gold or grey. */
+SDL_Surface *gfx_icon_coin(int size, int grey);
 
 /* A button hint: a coloured disc with the letter and the action next to it. align places the whole hint. */
 void gfx_button_hint(int x, int y, const char *letter, uint32_t rgb, const char *action, int align);

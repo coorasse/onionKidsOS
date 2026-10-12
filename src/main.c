@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 	Game *playing = NULL;
 	kid_ui_enter();
 
-	uint32_t now = scripted ? 0 : PLAT_ticks(), last = now;
+	uint32_t now = scripted ? 0 : PLAT_ticks(), last = now, last_cover_check = now;
 	int last_state = -1;
 	while (!pad.quit) {
 		const char *shot = NULL;
@@ -186,8 +186,13 @@ int main(int argc, char **argv)
 		/* the loop runs at 60 Hz for input, but drawing a frame costs more than the frame itself on the
 		 * device: skip it while nothing moves and no button changed */
 		int animating = state == ST_KID ? kid_ui_animating() : 0;
+		int covers_changed = 0;
+		if (state == ST_KID && now - last_cover_check >= 1000) {
+			last_cover_check = now;
+			covers_changed = library_covers_refresh();
+		}
 		int dirty = scripted || state != last_state || pad.pressed || pad.released || pad.repeat || animating ||
-		            osd_visible();
+		            osd_visible() || covers_changed;
 		last_state = state;
 		if (!dirty) {
 			PLAT_delay(pad.held ? 16 : 32);

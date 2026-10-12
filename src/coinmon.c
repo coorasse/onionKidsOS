@@ -1,14 +1,12 @@
-/* Runs next to an arcade game on the device (see onion/game.sh). RetroArch has been told, for this
- * game, that the coin button is a key the pad does not have. coinmon watches the real SELECT presses
- * on the input device and, while daily coins remain, types that key into the console RetroArch reads
- * its keyboard from, so the game sees a coin. Once they are spent SELECT does nothing and the game
- * simply goes on with the credits it has.
- *
- * RetroArch's SDL on the Miyoo reads the virtual terminal in medium-raw mode, not the input device, so
- * the key is queued with TIOCSTI as raw keycode bytes (bit 7 set = release).
+/* Runs next to an arcade game on the device (see onion/game.sh). Counts presses of the coin button
+ * on the input device and, once the daily coins are spent, raises a flag that makes the preloaded
+ * coinlock library hide the coin button from RetroArch: the game goes on with the credits it has and
+ * SELECT does nothing until the next day.
  *
  * Usage: coinmon.elf <sdcard root>        watch SELECT
- *        coinmon.elf --press <keycode>     type one key and exit (for testing) */
+ *        coinmon.elf --press <keycode>     type one key into RetroArch's terminal and exit; RetroArch's
+ *                                          SDL reads the console in medium-raw mode, which is how a
+ *                                          button press is simulated over SSH when testing */
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +19,7 @@
 
 #define INPUT_DEVICE "/dev/input/event0"
 #define COIN_KEY KEY_RIGHTCTRL /* SELECT on the Miyoo Mini */
-#define VIRTUAL_COIN_KEY KEY_C /* what RetroArch is told to treat as the coin, see game.sh */
+#define LOCK_FLAG "/tmp/kidsos_no_coins"
 #define DEBOUNCE_MS 300
 #ifndef TIOCSTI
 #define TIOCSTI 0x5412
@@ -83,6 +81,16 @@ static int type_key(int keycode)
 	return rc;
 }
 
+static void set_lock(int on)
+{
+	if (!on) {
+		unlink(LOCK_FLAG);
+		return;
+	}
+	FILE *f = fopen(LOCK_FLAG, "w");
+	if (f) fclose(f);
+}
+
 int main(int argc, char **argv)
 {
 	if (argc == 3 && strcmp(argv[1], "--press") == 0) return type_key(atoi(argv[2])) == 0 ? 0 : 1;
@@ -93,25 +101,33 @@ int main(int argc, char **argv)
 		perror(INPUT_DEVICE);
 		return 1;
 	}
+	set_lock(coins_left() <= 0);
 	printf("coinmon: %d coins left of %d\n", coins_left(), coins_limit());
 	fflush(stdout);
 
 	struct input_event ev;
 	long long last_ms = 0;
+	int lock_on_release = 0;
 	while (read(fd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
-		if (ev.type != EV_KEY || ev.code != COIN_KEY || ev.value != 1) continue;
+		if (ev.type != EV_KEY || ev.code != COIN_KEY) continue;
+		if (ev.value == 0) {
+			/* the lock waits for the key to come up, so RetroArch never misses a release */
+			if (lock_on_release) {
+				set_lock(1);
+				lock_on_release = 0;
+				printf("coinmon: no coins left, SELECT is now ignored by the game\n");
+				fflush(stdout);
+			}
+			continue;
+		}
+		if (ev.value != 1 || coins_left() <= 0) continue;
 		long long now_ms = (long long)ev.time.tv_sec * 1000 + ev.time.tv_usec / 1000;
 		if (now_ms - last_ms < DEBOUNCE_MS) continue;
 		last_ms = now_ms;
-		if (coins_left() <= 0) {
-			printf("coinmon: no coins left, SELECT ignored\n");
-			fflush(stdout);
-			continue;
-		}
 		coins_spend();
-		type_key(VIRTUAL_COIN_KEY);
 		printf("coinmon: coin inserted, %d left\n", coins_left());
 		fflush(stdout);
+		if (coins_left() <= 0) lock_on_release = 1;
 	}
 	close(fd);
 	return 0;

@@ -16,7 +16,8 @@ static float scroll;
 static uint32_t hold_ms;
 static SDL_Surface *background;
 static uint32_t notice_ms; /* "no coins left" bubble, counts down */
-static int coins_left_cache, coins_limit_cache;
+static int coins_left_cache, coins_limit_cache, arcade_present;
+static SDL_Surface *coin_icon[2]; /* gold, grey */
 
 void kid_ui_enter(void)
 {
@@ -29,6 +30,9 @@ void kid_ui_enter(void)
 	hold_ms = 0;
 	coins_left_cache = coins_left();
 	coins_limit_cache = coins_limit();
+	arcade_present = 0;
+	for (int i = 0; i < count; i++)
+		if (coins_is_arcade(games[i]->system_tag)) arcade_present = 1;
 }
 
 void kid_ui_notice_no_coins(void)
@@ -134,23 +138,18 @@ static void draw_tile(Game *g, int cx, int cy, int size, uint8_t alpha)
 	gfx_blit_alpha(g->scaled, cx - w / 2, cy - h / 2, alpha);
 }
 
-/* Small coin counter in the corner of arcade tiles: "7" on a yellow coin, grey when none left. */
-static void draw_coin_badge(Game *g, int cx, int cy, int size)
+/* Daily coin counter in the top left corner, shown while an arcade game is in the list. */
+static void draw_coin_counter(void)
 {
-	if (!coins_is_arcade(g->system_tag)) return;
-	int r = size / 9;
-	if (r < 14) r = 14;
-	int bx = cx + size / 2 - r - size / 30, by = cy - size / 2 + r + size / 30;
-	SDL_Rect shadow = {bx - r, by - r + 2, 2 * r, 2 * r};
-	gfx_fill_rounded_alpha(shadow, r, 0x3A2E1A, 60);
-	SDL_Rect coin = {bx - r, by - r, 2 * r, 2 * r};
-	gfx_fill_rounded(coin, r, coins_left_cache > 0 ? 0xF5B800 : 0xB8B0A4);
-	SDL_Rect rim = {bx - r + 3, by - r + 3, 2 * r - 6, 2 * r - 6};
-	gfx_fill_rounded(rim, r - 3, coins_left_cache > 0 ? 0xFFD54A : 0xCFC8BD);
+	if (!arcade_present) return;
+	const int size = 44, x = 14, y = 8;
+	int grey = coins_left_cache <= 0;
+	if (!coin_icon[grey]) coin_icon[grey] = gfx_icon_coin(size, grey);
+	gfx_blit(coin_icon[grey], x, y);
 	char buf[8];
 	snprintf(buf, sizeof(buf), "%d", coins_left_cache);
-	TTF_Font *font = r >= 24 ? font_med : font_small;
-	gfx_text(font, buf, 0x5A3E00, bx, by - TTF_FontHeight(font) / 2, ALIGN_CENTER);
+	gfx_text(font_big, buf, grey ? 0x8A8580 : 0x7A4A00, x + size + 6, y + size / 2 - TTF_FontHeight(font_big) / 2,
+	         ALIGN_LEFT);
 }
 
 static void draw_hold_progress(void)
@@ -214,20 +213,20 @@ void kid_ui_render(void)
 			if (game_blocked(games[i])) alpha = (uint8_t)(alpha * 0.55f);
 			int size = (int)(base * scale), tx = 320 + (int)(d * spacing);
 			draw_tile(games[i], tx, cy, size, alpha);
-			draw_coin_badge(games[i], tx, cy, size);
 		}
 	}
 
 	gfx_text_fit(font_big, games[sel]->name, 0x333333, 320, 388, ALIGN_CENTER, 560);
 	draw_dots();
+	draw_coin_counter();
 	gfx_button_hint(622, 456, "A", BUTTON_A_COLOR, "Play", ALIGN_RIGHT);
 	draw_hold_progress();
 
 	if (notice_ms > 0) {
 		const char *msg = "No coins left today, come back tomorrow";
-		int w = gfx_text_width(font_med, msg) + 48;
-		SDL_Rect pill = {320 - w / 2, 10, w, 42};
+		int w = gfx_text_width(font_med, msg) + 48, cx = 370; /* centred in the space right of the coin counter */
+		SDL_Rect pill = {cx - w / 2, 10, w, 42};
 		gfx_fill_rounded_alpha(pill, 21, 0x3A2E1A, 200);
-		gfx_text(font_med, msg, 0xFFFFFF, 320, 18, ALIGN_CENTER);
+		gfx_text(font_med, msg, 0xFFFFFF, cx, 18, ALIGN_CENTER);
 	}
 }

@@ -1,0 +1,6 @@
+{
+	"label":	"KidsOS",
+	"icon":	"/mnt/SDCARD/App/KidsOS/icon.png",
+	"launch":	"launch.sh",
+	"description":	"Back to the kids screen, arcade coins"
+}

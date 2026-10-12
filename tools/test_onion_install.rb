@@ -34,6 +34,7 @@ STUBS = File.join(WORK, "stubs")
 IMAGE = "busybox:1.37.0"
 MAINUIS = %w[MainUI-283-clean MainUI-283-expert MainUI-354-clean MainUI-354-expert]
 KEYMAP = File.join(SYSDIR, "config/keymap.json")
+BOOT_OVERRIDE = File.join(SD, "Saves/CurrentProfile/theme/skin/extra/bootScreen.png")
 INSTALL_LOG = File.join(SD, ".kidsos/install.log")
 # what Onion's Tweaks app writes when the parent had remapped the MENU button
 ORIGINAL_KEYMAP = <<~JSON
@@ -60,8 +61,12 @@ end
 
 # what Onion's installer does with onion.pak: unpack it over the card (install_core, 7z x -aoa)
 def unpack_pak
-  unless File.exist?("#{WORK}/onion.pak")
+  pak = "#{WORK}/onion.pak"
+  # the unpacked pak is kept between scenarios, but a newer zip must replace it
+  if !File.exist?(pak) || File.mtime(pak) < File.mtime(DIST_ZIP)
+    FileUtils.rm_f(pak)
     system("unzip", "-q", "-j", DIST_ZIP, "miyoo/app/.tmp_update/onion.pak", "-d", WORK) || abort("cannot read onion.pak from #{DIST_ZIP}")
+    FileUtils.touch(pak)
   end
   SevenZip.extract(WORK, "onion.pak", "sd")
 end
@@ -118,7 +123,9 @@ def build_sd_card
     FileUtils.cp_r(File.join(onion_update, "script"), SYSDIR)
     FileUtils.cp_r(File.join(onion_update, "config"), SYSDIR)
     # the launcher as the device would receive it from "make deploy"
-    %w[launch.sh game.sh startup.sh install.sh uninstall.sh].each { |f| FileUtils.cp("#{ROOT}/onion/#{f}", "#{SD}/.kidsos/") }
+    %w[launch.sh game.sh covers.sh startup.sh install.sh uninstall.sh].each { |f| FileUtils.cp("#{ROOT}/onion/#{f}", "#{SD}/.kidsos/") }
+    FileUtils.cp_r("#{ROOT}/onion/app", "#{SD}/.kidsos/app")
+    FileUtils.cp("#{ROOT}/onion/bootScreen.png", "#{SD}/.kidsos/bootScreen.png")
   end
   stub_scripts
   stub_device_binaries
@@ -132,6 +139,9 @@ def build_sd_card
   File.write(KEYMAP, ORIGINAL_KEYMAP)
   FileUtils.mkdir_p("#{SYSDIR}/res")
   File.write("#{SYSDIR}/res/miyoo354_system.json", "{\"vol\": 20, \"mute\": 0}\n")
+  # an earlier installer replaced Onion's boot picture and kept it under config/
+  File.write("#{SYSDIR}/res/bootScreen.png", "kids boot picture from an earlier installer\n")
+  File.write("#{SYSDIR}/config/bootScreen.png.kidsos-orig", "onion boot picture\n")
   FileUtils.touch("#{SD}/cachefile") # create_swap would dd 128 MB otherwise
 
   # system commands the device has and the container must fake
@@ -153,9 +163,9 @@ def build_sd_card
     esac
   SH
 
-  # the game is an arcade one, launched through game.sh like the launcher does; Onion's launch script
-  # names the core, whose .info gives the folder of the RetroArch override. While it runs, keymon reacts
-  # to MENU by pausing RetroArch and starting the GameSwitcher overlay.
+  # the game is an arcade one, launched through game.sh like the launcher does, which preloads the
+  # coinlock library into it. While it runs, keymon reacts to MENU by pausing RetroArch and starting the
+  # GameSwitcher overlay.
   FileUtils.mkdir_p("#{SD}/RetroArch/.retroarch/cores")
   FileUtils.mkdir_p("#{SD}/Roms/ARCADE")
   FileUtils.touch("#{SD}/Roms/ARCADE/game.zip")
@@ -164,7 +174,7 @@ def build_sd_card
     echo "fake retroarch -v -L .retroarch/cores/fakearcade_libretro.so" > /dev/null
     /mnt/SDCARD/.tmp_update/bin/gameSwitcher --overlay
     [ -f /mnt/SDCARD/.tmp_update/cmd_to_run.sh ] && echo "cmd_to_run.sh kept during overlay" >> /mnt/SDCARD/test.log
-    [ -f /tmp/kidsos_coin.cfg ] && echo "coin cfg during game: $(tr '\\n' ' ' < /tmp/kidsos_coin.cfg) via $0" >> /mnt/SDCARD/test.log
+    echo "preload during game: $LD_PRELOAD" >> /mnt/SDCARD/test.log
     exit 0
   SH
 end
@@ -232,7 +242,12 @@ end
 log = events.join("\n")
 check "runtime.sh untouched", digest("#{SYSDIR}/runtime.sh") == originals["runtime.sh"]
 MAINUIS.each { |ui| check "#{ui}.real is the original", digest("#{SYSDIR}/bin/#{ui}.real") == originals[ui] }
-check "shims pass busybox sh -n", in_container("for f in bin/MainUI-* bin/gameSwitcher startup/kidsos.sh /mnt/SDCARD/.kidsos/*.sh; do sh -n $f || exit 1; done").first
+check "shims pass busybox sh -n", in_container("for f in bin/MainUI-* bin/gameSwitcher startup/kidsos.sh /mnt/SDCARD/.kidsos/*.sh /mnt/SDCARD/App/KidsOS/launch.sh; do sh -n $f || exit 1; done").first
+check "kids boot screen installed as a theme override",
+      (File.read(BOOT_OVERRIDE) == File.read("#{ROOT}/onion/bootScreen.png") rescue false)
+check "Onion's boot picture put back from the earlier installer's backup",
+      (File.read("#{SYSDIR}/res/bootScreen.png") == "onion boot picture\n" rescue false) && !File.exist?("#{SYSDIR}/config/bootScreen.png.kidsos-orig")
+check "KidsOS app installed into Onion's Apps", File.exist?("#{SD}/App/KidsOS/launch.sh") && File.exist?("#{SD}/App/KidsOS/config.json") && File.exist?("#{SD}/App/KidsOS/icon.png")
 check_boot_sequence ["kidsos run 1", "fakeapp", "real gameSwitcher --overlay", "cmd_to_run.sh kept during overlay",
                      "kidsos run 2", "real MainUI-354-clean", "shutdown"]
 check "GameSwitcher was requested", File.read("#{SYSDIR}/logs/runtime.log").include?("Launch switcher") rescue check("runtime.log present", false)
@@ -244,9 +259,8 @@ check "launch.sh flagged the crash", kidsos_log.include?("exited with 3"), kidso
 check "launch.sh kept the previous log", previous_log.include?("exited with 0"), previous_log
 check "keymon volume bar hidden while the launcher runs", events.any? { |l| l.start_with?("kidsos run 1 meterWidth=0") }, log
 check "keymon volume bar width restored afterwards", (File.read("#{SYSDIR}/config/display/meterWidth") == "4" rescue false)
-check "coin key moved while the arcade game runs (game.sh runs a patched copy of the launch script)",
-      events.any? { |l| l.start_with?("coin cfg during game:") && l.include?('input_player1_select = "c"') && l.include?('input_player1_select_btn = "nul"') && l.include?("launch.kidsos.sh") }, log
-check "patched launch script removed after the game", !File.exist?("#{SD}/Emu/ARCADE/launch.kidsos.sh"), log
+check "coinlock preloaded into the arcade game next to Onion's libpadsp",
+      events.any? { |l| l.start_with?("preload during game:") && l.include?("libpadsp.so /mnt/SDCARD/.kidsos/libcoinlock.so") }, log
 check "runtime.sh ended by shutdown, not by timeout", events.none? { |l| l.include?("exited with 124") }, log
 ingame = %w[ingame_single_press ingame_long_press ingame_double_press].map { |k| keymap_value(k) }
 mainui = %w[mainui_single_press mainui_long_press mainui_double_press].map { |k| keymap_value(k) }
@@ -287,6 +301,31 @@ if DIST_ZIP
   check_boot_sequence ["kidsos run 3", "real MainUI-354-clean", "shutdown"]
 end
 
+puts "== the settings app: Onion's prompt answered by a script"
+File.write("#{SD}/prompt-answers", "1\n2\n2\n3\n") # change coins -> pick 5 -> give coins back -> stay in Onion
+FileUtils.mkdir_p("#{SD}/kids")
+File.write("#{SD}/kids/coins.txt", "1970-01-18 4\n")
+stub("#{SYSDIR}/bin/prompt", "a=$(head -1 /mnt/SDCARD/prompt-answers); sed -i 1d /mnt/SDCARD/prompt-answers; exit $a", log_as: "prompt")
+ok, out = in_container(<<~SH)
+  touch /tmp/kidsos_exit
+  sh /mnt/SDCARD/App/KidsOS/launch.sh || exit 1
+  [ -f /tmp/kidsos_exit ] && echo "still in Onion"
+SH
+app_events = (File.read("#{SD}/test.log") rescue "").lines.map(&:strip)
+check "app ran through and exited", ok, out
+check "staying in Onion keeps the exit flag", out.include?("still in Onion"), out
+check "app offered the current allowance", app_events.any? { |l| l.start_with?("prompt -t KidsOS -m Arcade coins per day: 10") }, app_events.join("\n")
+check "app wrote the chosen allowance", (File.read("#{SD}/kids/settings.txt").include?("arcade_coins_per_day=5") rescue false)
+check "app gave today's coins back", !File.exist?("#{SD}/kids/coins.txt")
+check "app confirmed with infoPanel", app_events.count { |l| l.start_with?("infoPanel -t KidsOS") } == 2, app_events.join("\n")
+File.write("#{SD}/prompt-answers", "0\n")
+ok, out = in_container(<<~SH)
+  touch /tmp/kidsos_exit
+  sh /mnt/SDCARD/App/KidsOS/launch.sh || exit 1
+  [ -f /tmp/kidsos_exit ] || echo "back to the kids screen"
+SH
+check "back to the kids screen drops the exit flag, so the MainUI shim starts the launcher again", ok && out.include?("back to the kids screen"), out
+
 puts "== reinstall with a stale shim + uninstall"
 File.write("#{SYSDIR}/bin/gameSwitcher", "#!/bin/sh\n# KIDSOS\nexit 0\n")
 ok, out = in_container(<<~SH)
@@ -296,9 +335,12 @@ SH
 check "second install.sh leaves current shims alone", out.scan("already shimmed").size == MAINUIS.size, out
 check "second install.sh replaces the stale shim", out.include?("gameSwitcher shimmed"), out
 check "second install.sh leaves the keymap alone", out.include?("keymap already set"), out
+check "second install.sh leaves the boot screen alone", out.include?("boot screen already installed"), out
 check "uninstall.sh ran", out.include?("uninstalled"), out
 check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails back to default"), out
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out
+check "uninstall.sh removes the KidsOS app", out.include?("KidsOS app removed") && !File.exist?("#{SD}/App/KidsOS"), out
+check "uninstall.sh removes the boot screen override", out.include?("boot screen restored") && !File.exist?(BOOT_OVERRIDE), out
 (MAINUIS + %w[gameSwitcher]).each do |b|
   check "#{b} restored", File.exist?("#{SYSDIR}/bin/#{b}") && digest("#{SYSDIR}/bin/#{b}") == originals[b]
 end

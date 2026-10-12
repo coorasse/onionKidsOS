@@ -1,8 +1,13 @@
 # KidsOS for the Miyoo Mini Plus
 
+<img src="docs/images/kidsos.png" width="120" align="right" alt="A child playing a Game Boy, the KidsOS icon">
+
 A game console for small children: turn it on, pick a game, play. Nothing else is reachable.
 
-![The kids screen: one big game tile at a time](docs/images/kid-ui.png)
+<p align="center">
+  <img src="docs/images/kid-ui.png" width="400"
+       alt="The kids screen: one big game picture, the next game peeking in from the right">
+</p>
 
 The child sees one thing only: a row of big game pictures. Left and right to choose, **A** to play,
 **MENU** to stop. A game played before asks one picture question first: continue where you left off, or
@@ -63,17 +68,31 @@ Installation takes about fifteen minutes, most of it waiting.
    `GB` (Game Boy), `GBC` (Game Boy Color), `GBA` (Game Boy Advance), `FC` (NES), `SFC` (SNES),
    `PS` (PlayStation). The full table is in
    [Onion's documentation](https://onionui.github.io/docs/emulators/folders).
-3. Optional, but what makes the kids screen nice: a picture for each game, as a PNG with the same name as the
-   game file, in `Roms/<SYSTEM>/Imgs/`. Example: `Roms/GB/Tetris.gb` and `Roms/GB/Imgs/Tetris.png`.
-   Without a picture the tile shows the game's name.
+3. The pictures on the tiles come by themselves when the console is on Wi-Fi (see
+   [Pictures for the games](#pictures-for-the-games)). To use your own picture instead, put a PNG with the
+   same name as the game file in `Roms/<SYSTEM>/Imgs/`. Example: `Roms/GB/Tetris.gb` and
+   `Roms/GB/Imgs/Tetris.png`.
 4. Put the card back and turn the console on.
 5. Hold **SELECT + START** together for three seconds: the kids screen goes away and Onion's own menu
-   appears.
+   appears. It stays until the console is turned off, or until you open **KidsOS** in the *Apps* tab and
+   choose *Back to the kids screen*.
 6. In *Games*, open a system, highlight a game, press **SELECT** and choose *Add to favorites*. Repeat for
    every game the child may play. **The favourites are the child's list.**
 7. Turn the console off and on again. The games are there.
 
 To remove a game later, do the same and choose *Remove from favorites*.
+
+### Pictures for the games
+
+Every game in the child's row gets its box art downloaded by itself, once the console knows your Wi-Fi:
+hold **SELECT + START** for three seconds, open *Apps* › *Tweaks* › *Network*, turn *Wi-Fi* on and pick your
+network. From then on, every time the kids screen appears, the console fetches the missing pictures in the
+background and the tiles fill in within a minute. Without Wi-Fi the tiles show the game's name and the
+console tries again at the next start.
+
+The pictures come from the [libretro thumbnails](https://thumbnails.libretro.com/) collection and are found
+by the game's file name: `Tetris.gb` and `Tetris (World) (Rev 1).gb` both work, `tetris_final_v2.gb` does
+not. A game that gets no picture is easiest fixed by renaming its file to the game's real title.
 
 ## Using it
 
@@ -82,15 +101,75 @@ To remove a game later, do the same and choose *Remove from favorites*.
 | Left / Right | Choose a game |
 | A | Play |
 | MENU (during a game) | Save and go back to the game list |
+| SELECT (arcade games) | Insert a coin, while the day's coins last |
 | Volume + / - | Volume |
-| SELECT + START held for 3 s | Parent: leave the kids screen and open Onion until the next power off |
+| SELECT + START held for 3 s | Parent: leave the kids screen and open Onion |
+
+<p align="center">
+  <img src="docs/images/kid-ui-second.png" width="320" alt="Moving right: the next game slides into the middle">
+  <img src="docs/images/volume.png" width="320" alt="The volume bar shown over the games screen">
+</p>
 
 When a game is started again, a screen with two pictures asks whether to **continue** (green badge, a
 screenshot of where the game was left) or **start over** (orange arrow, the game's picture).
 
+<p align="center">
+  <img src="docs/images/resume-continue.png" width="320" alt="The continue or start over screen, continue selected">
+  <img src="docs/images/resume-start-over.png" width="320" alt="The same screen with start over selected">
+</p>
+
+Holding **SELECT + START** shows a bar that fills up while the buttons are held; letting go before it is
+full changes nothing, so a child pressing buttons at random stays in the kids screen.
+
+<p align="center">
+  <img src="docs/images/parent-hold.png" width="400" alt="The bar that fills while SELECT and START are held">
+</p>
+
+### Arcade coins
+
+Arcade games (the folders ARCADE, NEOGEO, CPS and the like) come with an allowance of coins, 10 a day
+unless you change it. Every SELECT press in such a game is a coin, and a coin counter in the top left corner
+of the games screen shows how many are left. When they are gone the game is not interrupted: it keeps the
+credits it already has, SELECT simply does nothing more, the counter goes grey and the arcade tiles fade.
+The coins come back the next day. The console has no clock of its own, so unless it got the time over Wi-Fi
+"the next day" means the next time it is switched on.
+
+To change the number on the console itself: leave the kids screen (SELECT + START for three seconds), open
+the *Apps* tab and start **KidsOS**. It offers the coins per day (3 to 30, or no limit), a way to hand
+out today's coins again and the way back to the kids screen. The same can be done from a computer: open
+`kids/settings.txt` at the top level of the card with any text editor (the file is created the first time
+KidsOS starts). It looks like this:
+
+```
+# Arcade coins the kid may insert per day (0 = unlimited).
+arcade_coins_per_day=10
+# Systems whose games use coins, by folder tag.
+arcade_systems=ARCADE,CPS1,CPS2,CPS3,NEOGEO,FBN,FBNEO,MAME
+```
+
+Set `arcade_coins_per_day=0` to switch coins off altogether: no counter, and SELECT always works. The second
+line lists the game folders that count as arcade; add or remove folder names, separated by commas. To hand
+out today's coins again, delete the file `kids/coins.txt` from the card.
+
 Everything else, including the in-game menu of the emulator, is out of reach for the child. The parent can
 still change Onion settings (brightness, theme music on or off, Wi-Fi) after the secret combination, under
 *Apps* › *Tweaks*.
+
+## No time limit, on purpose
+
+KidsOS has no "maximum play time per day" and will not get one. The console does not count minutes, does
+not lock itself after an hour and does not nag. This is a deliberate choice, not a missing feature.
+
+How long a child plays is something to agree on between the child and the parents, and to keep to
+together. A timer enforced by the machine takes that conversation away: the console becomes the one that
+says stop, the child learns to argue with a device instead of with a person, and nobody learns to stop by
+themselves. Saying "one more level and then we put it away", and then putting it away, is the limit; the
+console only has to make putting it away easy, which it does by saving the game when **MENU** is pressed
+and bringing it back with *Continue* next time.
+
+The arcade coins are different in kind: they copy the arcade hall, where a handful of coins is the
+budget and the game ends when they are gone. Nothing stops the child from playing another game
+afterwards.
 
 ## Updating KidsOS
 
@@ -107,10 +186,14 @@ and delete the hidden folder `.kidsos` from the card. Games and saves stay.
 
 ## Troubleshooting
 
+- **The console shows Onion's boot picture instead of the KidsOS one:** harmless, the kids screen still
+  comes up; copying the KidsOS zip onto the card again puts the picture back.
 - **Black screen, or nothing reacts:** hold **POWER** until the console turns off, then turn it on again.
 - **The kids screen is empty:** no favourites yet, see [Add games](#4-add-games).
 - **The console starts into Onion's menu instead of the kids screen:** copy the KidsOS zip onto the card
   again as in [Copy KidsOS to the card](#2-copy-kidsos-to-the-card). Nothing else is needed.
+- **A game has no picture:** check that Wi-Fi is on (see [Pictures for the games](#pictures-for-the-games))
+  and that the file is named after the game. `.kidsos/covers.log` on the card says what was tried.
 - **A game does not start:** try it from Onion's menu (SELECT + START). If it does not start there either,
   the game file or the emulator setup is the problem, not KidsOS.
 

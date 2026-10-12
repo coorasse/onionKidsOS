@@ -72,20 +72,34 @@ int coins_is_arcade(const char *tag)
 	return 0;
 }
 
+/* The day the coins belong to. The Miyoo has no battery-backed clock: unless Onion synced the time over
+ * Wi-Fi the date is in 1970 and would never change, so then the allowance lasts until the next power on. */
 static void today(char *buf, size_t n)
 {
 	time_t t = time(NULL);
-	strftime(buf, n, "%Y-%m-%d", localtime(&t));
+	struct tm *tm = localtime(&t);
+	if (tm && tm->tm_year + 1900 >= 2024) {
+		strftime(buf, n, "%Y-%m-%d", tm);
+		return;
+	}
+	char id[48] = "";
+	FILE *f = fopen("/proc/sys/kernel/random/boot_id", "r");
+	if (f) {
+		if (!fgets(id, sizeof(id), f)) id[0] = 0;
+		fclose(f);
+	}
+	id[strcspn(id, "\r\n")] = 0;
+	snprintf(buf, n, "boot-%s", id[0] ? id : "unknown");
 }
 
 int coins_used(void)
 {
-	char path[1100], date[32] = "", day[32];
+	char path[1100], date[64] = "", day[64];
 	int used = 0;
 	kids_path("coins.txt", path, sizeof(path));
 	FILE *f = fopen(path, "r");
 	if (!f) return 0;
-	if (fscanf(f, "%31s %d", date, &used) != 2) used = 0;
+	if (fscanf(f, "%63s %d", date, &used) != 2) used = 0;
 	fclose(f);
 	today(day, sizeof(day));
 	return strcmp(date, day) == 0 ? used : 0;
@@ -99,7 +113,7 @@ int coins_left(void)
 
 static void write_used(int used)
 {
-	char path[1100], day[32];
+	char path[1100], day[64];
 	kids_path("coins.txt", path, sizeof(path));
 	today(day, sizeof(day));
 	FILE *f = fopen(path, "w");

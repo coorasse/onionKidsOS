@@ -100,8 +100,40 @@ write_startup_hook() {
 	fi
 }
 
+# the settings app shows up in Onion's Apps tab (coins per day); copied only when something changed
+write_app() {
+	src="$KIDS/app/KidsOS"
+	dst=/mnt/SDCARD/App/KidsOS
+	[ -d "$src" ] || return 0
+	if [ -d "$dst" ] && cmp -s "$src/launch.sh" "$dst/launch.sh" && cmp -s "$src/config.json" "$dst/config.json" &&
+	   cmp -s "$src/icon.png" "$dst/icon.png"; then
+		echo "KidsOS app already installed"
+		return 0
+	fi
+	mkdir -p "$dst" && cp "$src/launch.sh" "$src/config.json" "$src/icon.png" "$dst/" || fail "cannot install the KidsOS app"
+	chmod +x "$dst/launch.sh"
+	echo "KidsOS app installed"
+}
+
+# Onion's bootScreen looks for the picture in Saves/CurrentProfile/theme/skin/extra/ first, then in the theme,
+# then in .tmp_update/res/: the kids one goes to the first place so it wins over every theme. Onion's "Reset
+# theme overrides" removes it and the next boot puts it back.
+write_boot_screen() {
+	ours="$KIDS/bootScreen.png"
+	dir=/mnt/SDCARD/Saves/CurrentProfile/theme/skin/extra
+	[ -f "$ours" ] || return 0
+	# an earlier installer replaced .tmp_update/res/bootScreen.png and kept Onion's picture under config/
+	[ -f "$CONFIG/bootScreen.png.kidsos-orig" ] && mv -f "$CONFIG/bootScreen.png.kidsos-orig" "$SYS/res/bootScreen.png"
+	if cmp -s "$ours" "$dir/bootScreen.png"; then
+		echo "boot screen already installed"
+		return 0
+	fi
+	mkdir -p "$dir" && cp "$ours" "$dir/bootScreen.png" || fail "cannot install the boot screen"
+	echo "boot screen installed"
+}
+
 [ -f "$RT" ] || fail "runtime.sh not found, is this Onion?"
-chmod +x "$KIDS/launch.sh" "$KIDS/game.sh" "$KIDS/startup.sh" "$KIDS/kidsos.elf" "$KIDS/coinmon.elf"
+chmod +x "$KIDS/launch.sh" "$KIDS/game.sh" "$KIDS/covers.sh" "$KIDS/startup.sh" "$KIDS/kidsos.elf" "$KIDS/coinmon.elf"
 
 # an earlier version of this installer patched runtime.sh itself
 if grep -q "$MARK" "$RT"; then
@@ -126,6 +158,8 @@ write_shim gameSwitcher "	if [ \"\$1\" != \"--overlay\" ]; then
 	fi"
 write_keymap
 write_startup_hook
+write_app
+write_boot_screen
 # the resume screen shows RetroArch's own picture of the auto save state; Onion ships with thumbnails off
 if grep -q 'savestate_thumbnail_enable = "true"' /mnt/SDCARD/RetroArch/.retroarch/retroarch.cfg 2> /dev/null; then
 	echo "RetroArch save state thumbnails already enabled"

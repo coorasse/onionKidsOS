@@ -19,19 +19,27 @@ src/
   resume_ui.c          continue or start over, shown when the game has an auto save state
   osd.c                big volume indicator, drawn over any screen after a volume key
   library.c            scans Roms/ (Onion or MinUI layout), reads Onion's favourites or kids/enabled.txt
+  coins.c              daily arcade coins (kids/settings.txt, kids/coins.txt)
+  coinmon.c            device: counts SELECT presses next to an arcade game, raises the lock flag
+  coinlock.c           device: preloaded into RetroArch, hides SELECT from it while the flag exists
   gfx.c                drawing helpers on SDL surfaces (rounded rects, scaling, text)
   platform.h           what a platform must provide (video, input, launching a game)
   platform_desktop.c   macOS/Linux implementation with SDL2
   platform_onion.c     Miyoo Mini Plus with OnionOS (SDL 1.2, 32 bit screen)
   platform_miyoomini.c Miyoo Mini Plus with MinUI (SDL 1.2, 16 bit screen)
-onion/                 device-side scripts: launch.sh, game.sh, install.sh (shims MainUI/GameSwitcher, kids keymap,
-                       boot hook), startup.sh (the boot hook), uninstall.sh
+onion/app/KidsOS/      the app in Onion's Apps tab (back to the kids screen, coins per day), built on Onion's prompt and infoPanel
+onion/                 device-side scripts: launch.sh, game.sh, covers.sh (box art for favourites over Wi-Fi),
+                       install.sh (shims MainUI/GameSwitcher, kids keymap, boot hook), startup.sh (the boot
+                       hook), uninstall.sh
 pak/                   MinUI pak launch script
 sdcard/, sdcard-onion/ fake SD cards for development (empty roms + generated placeholder art)
 tools/build_dist.rb    builds the KidsOS zip from the official Onion release (make dist)
 tools/test_onion_install.rb  boots Onion's runtime.sh in Docker against a fake card (make test-onion, make test-dist)
+tools/test_covers.rb   runs covers.sh in Docker against a fake card and a fake thumbnail server (make test-covers)
 tools/sevenzip.rb      7z for the two scripts above (local binary or Alpine container)
 tools/make_covers.py   regenerates the fake SD cards
+tools/make_icon.py     draws the KidsOS picture: app icon and large version (make icon)
+tools/make_splash.py   composes the boot screen onion/bootScreen.png from it (make icon)
 tools/fetch_covers.rb  downloads box art for the real card from thumbnails.libretro.com
 tools/fb2png.py        turns a /dev/fb0 dump from the device into a PNG
 docs/                  this file and the README screenshots
@@ -110,6 +118,7 @@ Onion's SSH is root without password.
 make deploy MIYOO=192.168.1.42   # cross-compile, copy /mnt/SDCARD/.kidsos, install the shims
 make device-restart MIYOO=...    # leave MainUI and start the kids launcher right now
 make device-shot MIYOO=...       # real screenshot of the device into shots/device.png
+make device-shots MIYOO=...      # the README screenshots, taken by the launcher on the device, into shots/device/
 make device-log MIYOO=...        # launcher log and the tail of Onion's runtime log
 make undeploy MIYOO=...          # restore Onion's binaries and remove the launcher
 ```
@@ -135,8 +144,9 @@ Inside RetroArch's own menu, "Close Content" does not quit RetroArch on Onion (`
 is off): it leaves an empty RetroArch behind. Use "Quit RetroArch" or the MENU button instead.
 
 Holding SELECT + START in the kid UI creates `/tmp/kidsos_exit`; the shims then run the real binaries
-until the next reboot. If the launcher ever crashes, `launch.sh` sets the same flag so the parent is
-never locked out. Onion updates overwrite `.tmp_update/bin`: run `make deploy` again afterwards, it
+until the next reboot, or until the KidsOS app's "Back to the kids screen" removes the flag: Onion's
+`runtime.sh` starts MainUI again after every app, and that MainUI is the shim. If the launcher ever
+crashes, `launch.sh` sets the same flag so the parent is never locked out. Onion updates overwrite `.tmp_update/bin`: run `make deploy` again afterwards, it
 also replaces shims from an older version of this installer.
 
 Continue or start over works through Onion's own flags: the launcher touches `/tmp/force_auto_load_state`
@@ -146,6 +156,21 @@ in `Saves/CurrentProfile/states/<core>/<rom>.state.auto`; `install.sh` switches 
 `savestate_thumbnail_enable` in `retroarch.cfg` so the continue tile can show the picture RetroArch
 saves next to it. `uninstall.sh` switches it off again.
 
+Arcade coins: `game.sh` wraps arcade launches. It starts `coinmon.elf`, which counts SELECT presses on
+`/dev/input/event0` and keeps `kids/coins.txt` up to date, and it adds `libcoinlock.so` to `LD_PRELOAD` next
+to Onion's `libpadsp.so`. Onion's RetroArch links Onion's `libSDL-1.2` dynamically and its `sdl_dingux`
+input driver reads the pad from SDL's key state, so the library wraps `SDL_GetKeyState` (and the event
+calls) and clears SELECT while `/tmp/kidsos_no_coins` exists. coinmon creates that flag once the last coin's
+key has been released, so the game keeps its credits and only the coin button dies. `kids/coins.txt`
+holds the day and the coins used; the Miyoo has no battery clock, so when the date is not real (before
+2024, no NTP sync) the "day" is the kernel boot id and the allowance lasts until the next power on.
+`arcade_coins_per_day=0` turns the whole feature off (`coins_is_arcade` is then false for every game, so
+no wrapper and no counter). Nothing in RetroArch's configuration is touched: per-core override files
+turned out to be ignored by this build, keyboard binds never reach the joypad layer, `nul` falls back to
+the default bind, and the kernel has no uinput.
+`coinmon.elf --press <keycode>` types one key into RetroArch's terminal (TIOCSTI, medium-raw keycodes)
+for testing over SSH; writing input events to `/dev/input/event0` reaches keymon and RetroArch as well.
+
 The volume keys are handled by Onion's keymon, which also paints a thin bar at the screen edge that
 flickers under a UI that redraws. The launcher reads the keys itself from `/dev/input/event0`, shows its
 own indicator, and `launch.sh` sets keymon's bar width (`config/display/meterWidth`) to 0 while the
@@ -153,6 +178,19 @@ launcher runs and restores it on exit, so games keep Onion's bar. The value is c
 keymon does it and re-read from `system.json` once the keys have been quiet for a few seconds.
 
 The main loop only draws when something moved or a button changed; idle, the launcher uses no CPU.
+
+Box art: `launch.sh` starts `covers.sh` in the background every time the kids UI comes up. It reads
+`Roms/favourite.json`, and for every favourite whose `imgpath` does not exist it fetches the cover from
+thumbnails.libretro.com (the source of Onion's own Scraper app) with Onion's `wget` over plain HTTP, shrinks
+it with Onion's `pngScale` and moves it into place. The exact file name is tried first on every libretro
+system of the Roms folder; when it is missing, the system's directory listing (cached a week in
+`.kidsos/cache/`) is searched for another release of the same title, World, USA, Europe, Japan in that
+order. Arcade roms go through `BIOS/arcade_lists/arcade-rom-names.txt`. The script exits at once when every
+favourite has a picture, waits up to 90 s for the network otherwise, and raises
+`/tmp/kidsos_covers_changed` after each download; the launcher polls that flag once a second
+(`library_covers_refresh`) and forgets its cover misses, so the tiles fill in while the child watches.
+`.kidsos/covers.log` keeps the last run that had work to do. `make test-covers` runs the script in BusyBox
+against a fake card and a wget stub serving a directory as thumbnails.libretro.com.
 
 The menu music and the selection click are the stock Miyoo ones, read from the firmware partition
 (`/customer/app/sound/bgm.mp3` and `change.wav`); Onion's copies on the card are dummies. They are played
@@ -200,8 +238,9 @@ Onion update (the installer stub's wipe of `.tmp_update` except `config/` and `o
 the zip to a GitHub pre-release.
 
 Not touched on an Onion update (verified in Onion's `install.sh`): `Roms/` with `favourite.json`,
-`Saves/`, `.tmp_update/config/` (so the kids keymap and its backup survive), `.kidsos/`. Onion's OTA update
-app installs plain Onion and so removes the hook; the README tells parents not to use it.
+`Saves/` (where the kids boot screen lives as a theme override), `.tmp_update/config/` (so the kids keymap and
+its backup survive), `.kidsos/`. Onion's OTA update app installs plain Onion and so removes the hook; the README
+tells parents not to use it.
 
 ### MinUI
 

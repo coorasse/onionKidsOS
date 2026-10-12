@@ -12,6 +12,8 @@ if [ ! -f "$mw.kidsos-orig" ] && [ ! -f "$mw.kidsos-none" ]; then
 	if [ -f "$mw" ]; then cp "$mw" "$mw.kidsos-orig"; else touch "$mw.kidsos-none"; fi
 fi
 echo 0 > "$mw"
+# box art for favourites that have none, over Wi-Fi; the script exits at once when there is nothing to do
+sh "$dir/covers.sh" > /dev/null 2>&1 &
 mv -f "$dir/kidsos.log" "$dir/kidsos.log.1" 2> /dev/null
 echo "kidsos started $(date)" > "$dir/kidsos.log"
 ./kidsos.elf >> "$dir/kidsos.log" 2>&1

@@ -54,6 +54,10 @@ shots-resume: build/kidsos
 covers:
 	python3 tools/make_covers.py
 
+icon:
+	python3 tools/make_icon.py
+	python3 tools/make_splash.py
+
 # Box art for the real card from thumbnails.libretro.com: make fetch-covers SD=/Volumes/ONIONOS
 SD ?= /Volumes/ONIONOS
 fetch-covers:
@@ -91,17 +95,20 @@ onion: $(TOOLCHAIN_DIR)/.build
 	docker run --rm -v "$(CURDIR)":/root/workspace $(TOOLCHAIN_IMAGE) /bin/bash -c \
 		'. /root/setup-env.sh && cd /root/workspace && make build/onion/kidsos.elf'
 
-build/onion/kidsos.elf: $(COMMON) src/platform_onion.c src/coinmon.c $(HEADERS)
+build/onion/kidsos.elf: $(COMMON) src/platform_onion.c src/coinmon.c src/coinlock.c $(HEADERS)
 	@mkdir -p build/onion
 	$(CROSS_COMPILE)gcc -O2 -Wall -Wextra -std=gnu11 -DPLATFORM_ONION -Wno-format-truncation -I$(PREFIX)/include/SDL \
 		-o $@ $(COMMON) src/platform_onion.c -lSDL -lSDL_image -lSDL_ttf -lm -lpthread -ldl -s
 	$(CROSS_COMPILE)gcc -O2 -Wall -Wextra -std=gnu11 -o build/onion/coinmon.elf src/coinmon.c src/coins.c -s
+	$(CROSS_COMPILE)gcc -O2 -Wall -Wextra -std=gnu11 -shared -fPIC -I$(PREFIX)/include/SDL -o build/onion/libcoinlock.so src/coinlock.c -ldl -s
 
 DIST = build/onion/dist/.kidsos
 onion-dist: onion
 	rm -rf build/onion/dist && mkdir -p $(DIST)/res
-	cp build/onion/kidsos.elf build/onion/coinmon.elf onion/launch.sh onion/game.sh onion/startup.sh onion/install.sh onion/uninstall.sh $(DIST)/
+	cp build/onion/kidsos.elf build/onion/coinmon.elf build/onion/libcoinlock.so onion/launch.sh onion/game.sh onion/covers.sh onion/startup.sh onion/install.sh onion/uninstall.sh $(DIST)/
 	cp assets/BPreplayBold-unhinted.otf $(DIST)/res/
+	cp -R onion/app $(DIST)/app
+	cp onion/bootScreen.png $(DIST)/
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
 KIDSOS_VERSION = 0.1.0
@@ -158,6 +165,10 @@ test-onion: ../reference/Onion
 ../reference/Onion:
 	git clone --depth 1 https://github.com/onionui/Onion $@
 
+# runs onion/covers.sh in a BusyBox container against a fake card and a fake thumbnails.libretro.com
+test-covers:
+	ruby tools/test_covers.rb
+
 # restart the UI loop without rebooting: Onion's runtime.sh comes straight back to the kids launcher
 device-restart:
 	$(SSH) 'rm -f /tmp/kidsos_exit; killall MainUI kidsos.elf 2>/dev/null; true'
@@ -169,7 +180,22 @@ device-shot:
 	@mkdir -p shots
 	$(SSH) 'cat /dev/fb0' > build/fb.raw && python3 tools/fb2png.py build/fb.raw shots/device.png
 
+# the README screenshots: the launcher runs a second time on the device with scripted input and saves BMPs
+# of its own frames (the first favourite needs a save state for the continue / start over screens)
+DEVICE_SHOT_SCRIPT = shot:kid-ui,right,shot:kid-ui-second,hold:select+start:1500,shot:parent-hold,wait:600,\
+volup,shot:volume,voldown,left,wait:1500,a,wait:800,shot:resume-continue,right,wait:800,shot:resume-start-over,b
+DEVICE_SHOT_ENV = cd /mnt/SDCARD/.kidsos && export LD_LIBRARY_PATH=/lib:/config/lib:/mnt/SDCARD/miyoo/lib:/mnt/SDCARD/.tmp_update/lib:/mnt/SDCARD/.tmp_update/lib/parasyte
+device-shots:
+	@mkdir -p shots/device && rm -f shots/device/*
+	$(SSH) 'rm -rf /tmp/shots && mkdir -p /tmp/shots && $(DEVICE_SHOT_ENV) && \
+		./kidsos.elf --script "$(DEVICE_SHOT_SCRIPT)" --shots /tmp/shots > /dev/null 2>&1 && \
+		echo "boot-$$(cat /proc/sys/kernel/random/boot_id) 10" > /mnt/SDCARD/kids/coins.txt && \
+		./kidsos.elf --script "shot:coins-none" --shots /tmp/shots > /dev/null 2>&1; rm -f /mnt/SDCARD/kids/coins.txt; \
+		cd /tmp/shots && tar cf - .' | tar -C shots/device -xf -
+	for f in shots/device/*.png; do sips -s format png "$$f" --out "$$f" > /dev/null; done
+	@echo "copy the ones you want to docs/images/ and compress them with tinify"
+
 clean:
 	rm -rf build shots/*.png shots/onion
 
-.PHONY: run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion device-restart device-log device-shot clean
+.PHONY: run shots shots-onion shots-coins shots-resume covers icon miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean

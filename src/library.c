@@ -8,6 +8,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "library.h"
 #include "gfx.h"
 
@@ -446,6 +447,23 @@ SDL_Surface *game_cover(Game *g)
 	}
 	for (int i = 0; i < n && !g->cover; i++) g->cover = gfx_load_image(candidates[i]);
 	return g->cover;
+}
+
+/* covers.sh raises a flag after every cover it downloads: the misses are forgotten so the next frame loads
+ * the new pictures. Returns 1 when a tile may have changed. */
+int library_covers_refresh(void)
+{
+	char flag[1100];
+	if (lib.layout == LAYOUT_ONION) snprintf(flag, sizeof(flag), "/tmp/kidsos_covers_changed");
+	else snprintf(flag, sizeof(flag), "%s/kids/covers_changed", sd_root);
+	if (unlink(flag) != 0) return 0;
+	int changed = 0;
+	for (int i = 0; i < lib.game_count; i++) {
+		if (!lib.games[i].cover_tried || lib.games[i].cover) continue;
+		lib.games[i].cover_tried = 0;
+		changed = 1;
+	}
+	return changed;
 }
 
 /* RetroArch keeps the auto save state in Saves/CurrentProfile/states/<core name>/<rom>.state.auto on Onion;
