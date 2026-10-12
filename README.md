@@ -1,7 +1,5 @@
 # KidsOS for the Miyoo Mini Plus
 
-*[Versione italiana](README.it.md)*
-
 A game console for small children: turn it on, pick a game, play. Nothing else is reachable.
 
 ![The kids screen: one big game tile at a time](docs/images/kid-ui.png)
