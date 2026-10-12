@@ -35,7 +35,7 @@ over.
 </p>
 
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
-there.
+there. POWER saves too and switches the console off; at the next power on the game is back where it was.
 
 ## What the parent gets
 
@@ -57,6 +57,7 @@ there.
 | Left / Right | Pick a game |
 | A | Play |
 | MENU (in a game) | Save and go back to the row |
+| POWER | Save and switch off |
 | SELECT (arcade games) | Insert a coin |
 | Volume + / - | Volume |
 | SELECT + START, hold 3 s | Parent: open Onion's menu |

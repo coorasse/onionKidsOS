@@ -2,6 +2,9 @@
 # Started by the MainUI shim that install.sh puts in Onion's .tmp_update/bin while kids mode is active.
 dir=/mnt/SDCARD/.kidsos
 cd "$dir"
+# Onion's power-off sends SIGTERM to every process while the kids UI is on screen: the launcher exits cleanly on
+# it and this script has to stay alive to put things back afterwards
+trap : TERM
 # the library order Onion's runtime.sh uses for its own SDL apps (tweaks, gameSwitcher)
 export LD_LIBRARY_PATH="/lib:/config/lib:/mnt/SDCARD/miyoo/lib:/mnt/SDCARD/.tmp_update/lib:/mnt/SDCARD/.tmp_update/lib/parasyte"
 # one log per run, the previous one is kept for when the launcher never came back

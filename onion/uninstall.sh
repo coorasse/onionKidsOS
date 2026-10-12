@@ -17,6 +17,10 @@ fi
 printf 'savestate_thumbnail_enable = "false"\n' > /tmp/kidsos_ra.cfg
 sh "$SYS/script/patch_ra_cfg.sh" /tmp/kidsos_ra.cfg > /dev/null && echo "RetroArch thumbnails back to default"
 rm -f /tmp/kidsos_ra.cfg
+if [ -f "$CONFIG/.disableStandby.kidsos" ]; then
+	rm -f "$CONFIG/.disableStandby" "$CONFIG/.disableStandby.kidsos" && echo "POWER back to standby"
+	touch /tmp/settings_changed
+fi
 mw=$CONFIG/display/meterWidth
 if [ -f "$mw.kidsos-orig" ]; then
 	mv "$mw.kidsos-orig" "$mw"

@@ -32,7 +32,8 @@ onion/theme/           the Onion theme in the KidsOS colours, installed next to 
 onion/bootScreen.png   the boot picture, installed as a theme override so it wins over every theme
 assets/                Fredoka Bold, the font of the kids screens (OFL, see onion/theme/*/OFL.txt)
 onion/                 device-side scripts: launch.sh, game.sh, covers.sh (box art for favourites over Wi-Fi),
-                       install.sh (shims MainUI/GameSwitcher, kids keymap, boot hook), startup.sh (the boot
+                       install.sh (shims MainUI/GameSwitcher, kids keymap, power button, RetroArch
+                       auto save, boot hook), startup.sh (the boot
                        hook), uninstall.sh
 pak/                   MinUI pak launch script
 sdcard/, sdcard-onion/ fake SD cards for development (empty roms + generated placeholder art)
@@ -170,7 +171,19 @@ or `/tmp/reset_game` next to the game command and `runtime.sh` turns them into R
 `savestate_auto_load`. The auto save state is the one RetroArch writes when the game is left with MENU,
 in `Saves/CurrentProfile/states/<core>/<rom>.state.auto`; `install.sh` switches on
 `savestate_thumbnail_enable` in `retroarch.cfg` so the continue tile can show the picture RetroArch
-saves next to it. `uninstall.sh` switches it off again.
+saves next to it. `uninstall.sh` switches it off again. It also forces `savestate_auto_save` and
+`savestate_auto_load` on (Onion's defaults, but a parent can switch them off in RetroArch's menu): without
+the first nothing is ever saved, without the second the game Onion relaunches at power on starts from
+scratch.
+
+POWER is keymon's too. A tap normally means standby (game frozen, screen dark, battery draining) and only
+the sleep timer saves and shuts down a few minutes later. `install.sh` sets Onion's own `.disableStandby`
+flag (Tweaks > Power single press > Shutdown), so a tap saves the game and switches the console off at
+once; the marker `.disableStandby.kidsos` tells `uninstall.sh` the flag was ours. Holding POWER for 5 s is
+Onion's forced shutdown without saving. While the kid UI is on screen Onion's power-off sends SIGTERM to
+every process; the launcher exits cleanly on it and `launch.sh` traps it so its cleanup still runs. At the
+next power on Onion relaunches the saved game itself (`cmd_to_run.sh` survives the shutdown) with the
+state loaded; holding MENU during boot skips that and lands on the kid row.
 
 Arcade coins: `game.sh` wraps arcade launches. It starts `coinmon.elf`, which counts SELECT presses on
 `/dev/input/event0` and keeps `kids/coins.txt` up to date, and it adds `libcoinlock.so` to `LD_PRELOAD` next

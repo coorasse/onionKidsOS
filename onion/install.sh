@@ -157,6 +157,42 @@ write_boot_screen() {
 	echo "boot screen installed"
 }
 
+# Saving is Onion's job: keymon ends a game (MENU, POWER, low battery) by asking RetroArch to quit, and RetroArch
+# writes the auto save state on the way out only while savestate_auto_save is on. Onion ships with it on, but
+# a parent can switch it off in RetroArch's own menu, so every boot puts it back. The auto load is what brings
+# the game back when Onion relaunches it at power on. The resume screen shows RetroArch's own picture of the
+# state, which Onion ships switched off; uninstall.sh only reverts that one, the other two are Onion's defaults.
+write_retroarch_cfg() {
+	cfg=/mnt/SDCARD/RetroArch/.retroarch/retroarch.cfg
+	: > /tmp/kidsos_ra.cfg
+	for key in savestate_auto_save savestate_auto_load savestate_thumbnail_enable; do
+		grep -q "^$key = \"true\"" "$cfg" 2> /dev/null || printf '%s = "true"\n' "$key" >> /tmp/kidsos_ra.cfg
+	done
+	if [ -s /tmp/kidsos_ra.cfg ]; then
+		sh "$SYS/script/patch_ra_cfg.sh" /tmp/kidsos_ra.cfg > /dev/null &&
+			echo "RetroArch set: $(tr '\n' ' ' < /tmp/kidsos_ra.cfg)"
+	else
+		echo "RetroArch auto save state and thumbnails already enabled"
+	fi
+	rm -f /tmp/kidsos_ra.cfg
+}
+
+# A POWER tap puts Onion in standby: the game is frozen, the screen is dark and the battery drains until the sleep
+# timer saves and shuts down minutes later. For a kid, off must mean off. Onion has a setting for that (Tweaks >
+# Power single press > Shutdown, the .disableStandby flag): a tap then saves the game and switches the console
+# off at once. keymon keeps its settings in memory and rewrites the flags on every volume key, so it is told to
+# reload them. A flag the parent had set before is left alone by uninstall.sh.
+write_power_button() {
+	flag="$CONFIG/.disableStandby"
+	if [ -f "$flag" ]; then
+		echo "POWER already set to shutdown"
+		return 0
+	fi
+	touch "$flag" "$flag.kidsos" || fail "cannot set the power button"
+	touch /tmp/settings_changed
+	echo "POWER set to save and shutdown"
+}
+
 [ -f "$RT" ] || fail "runtime.sh not found, is this Onion?"
 chmod +x "$KIDS/launch.sh" "$KIDS/game.sh" "$KIDS/covers.sh" "$KIDS/startup.sh" "$KIDS/kidsos.elf" "$KIDS/coinmon.elf"
 
@@ -186,14 +222,8 @@ write_startup_hook
 write_app
 write_theme
 write_boot_screen
-# the resume screen shows RetroArch's own picture of the auto save state; Onion ships with thumbnails off
-if grep -q 'savestate_thumbnail_enable = "true"' /mnt/SDCARD/RetroArch/.retroarch/retroarch.cfg 2> /dev/null; then
-	echo "RetroArch save state thumbnails already enabled"
-else
-	printf 'savestate_thumbnail_enable = "true"\n' > /tmp/kidsos_ra.cfg
-	sh "$SYS/script/patch_ra_cfg.sh" /tmp/kidsos_ra.cfg > /dev/null && echo "RetroArch save state thumbnails enabled"
-	rm -f /tmp/kidsos_ra.cfg
-fi
+write_retroarch_cfg
+write_power_button
 # Onion bind-mounts the MainUI binary once per boot; drop the mount so the shim is picked up without a reboot
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null
 sync

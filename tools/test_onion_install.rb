@@ -291,6 +291,11 @@ check "keymap: button shortcuts kept",
 check "keymap: original backed up", (File.read("#{KEYMAP}.kidsos-orig") == ORIGINAL_KEYMAP rescue false)
 check "keymap: keymon told to reload", install_out.include?("keymap set")
 check "RetroArch save state thumbnails switched on", events.include?(%q{savestate_thumbnail_enable = "true"}), log
+check "RetroArch auto save state enforced",
+      events.include?(%q{savestate_auto_save = "true"}) && events.include?(%q{savestate_auto_load = "true"}), log
+check "POWER tap set to save and shutdown (Onion's .disableStandby flag, marked as ours)",
+      File.exist?("#{SYSDIR}/config/.disableStandby") && File.exist?("#{SYSDIR}/config/.disableStandby.kidsos") &&
+      install_out.include?("POWER set to save and shutdown"), install_out
 
 puts "== next boot: the startup hook changes nothing"
 ok, out = in_container("sh startup/kidsos.sh")
@@ -300,6 +305,7 @@ check "shims left alone", second.scan("already shimmed").size == MAINUIS.size + 
 check "keymap left alone", second.include?("keymap already set"), second
 check "theme left alone", second.include?("KidsOS theme already installed") && !second.include?("set as default"), second
 check "RetroArch config left alone", second.include?("thumbnails already enabled") && events.count { |l| l == "patch_ra_cfg /tmp/kidsos_ra.cfg" } == 1, second
+check "power button left alone", second.include?("POWER already set to shutdown"), second
 ok, out = in_container("rm -f config/theme-set /tmp/settings_changed && sh /mnt/SDCARD/.kidsos/install.sh > /dev/null && test -f /tmp/settings_changed && echo reload")
 check "keymon is told to reload system.json after the theme is set", ok && out.include?("reload"), out
 
@@ -360,6 +366,8 @@ check "second install.sh leaves the keymap alone", out.include?("keymap already 
 check "second install.sh leaves the boot screen alone", out.include?("boot screen already installed"), out
 check "uninstall.sh ran", out.include?("uninstalled"), out
 check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails back to default"), out
+check "uninstall.sh puts POWER back to standby", out.include?("POWER back to standby") &&
+      !File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out
 check "uninstall.sh removes the KidsOS app", out.include?("KidsOS app removed") && !File.exist?("#{SD}/App/KidsOS"), out
 check "uninstall.sh removes the boot screen override", out.include?("boot screen restored") && !File.exist?(BOOT_OVERRIDE), out
@@ -373,13 +381,14 @@ check "no .real left behind", Dir.glob("#{SYSDIR}/bin/*.real").empty?
 check "keymap restored", (File.read(KEYMAP) == ORIGINAL_KEYMAP rescue false) && !File.exist?("#{KEYMAP}.kidsos-orig")
 check ".kidsos removed", !File.exist?("#{SD}/.kidsos")
 
-puts "== install without a keymap.json + uninstall"
+puts "== install without a keymap.json, POWER already set to shutdown by the parent + uninstall"
 # keep the boot scenario logs around for debugging
 FileUtils.mkdir_p("#{ROOT}/build/onion-test-logs")
 FileUtils.cp("#{SD}/test.log", "#{ROOT}/build/onion-test-logs/boot-test.log") rescue nil
 FileUtils.cp("#{SYSDIR}/logs/runtime.log", "#{ROOT}/build/onion-test-logs/boot-runtime.log") rescue nil
 build_sd_card
 FileUtils.rm_f(KEYMAP)
+FileUtils.touch("#{SYSDIR}/config/.disableStandby")
 ok, out = in_container(<<~SH)
   sh /mnt/SDCARD/.kidsos/install.sh || exit 1
   cp /mnt/SDCARD/.tmp_update/config/keymap.json /mnt/SDCARD/keymap-installed.json
@@ -389,6 +398,8 @@ installed = File.read("#{SD}/keymap-installed.json") rescue ""
 expected = ['"mainui_single_press": 1', '"mainui_double_press": 2', '"ingame_single_press": 2', '"mainui_button_x": ""']
 check "keymap written with Onion's MainUI defaults", expected.all? { |s| installed.include?(s) }, installed
 check "keymap removed again", !File.exist?(KEYMAP) && !File.exist?("#{KEYMAP}.kidsos-none")
+check "the parent's POWER setting is kept", out.include?("POWER already set to shutdown") &&
+      File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
 
 if $failures.empty?
   puts "\nall checks passed"
