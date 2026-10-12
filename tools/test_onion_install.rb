@@ -36,6 +36,17 @@ MAINUIS = %w[MainUI-283-clean MainUI-283-expert MainUI-354-clean MainUI-354-expe
 KEYMAP = File.join(SYSDIR, "config/keymap.json")
 BOOT_OVERRIDE = File.join(SD, "Saves/CurrentProfile/theme/skin/extra/bootScreen.png")
 INSTALL_LOG = File.join(SD, ".kidsos/install.log")
+THEME = File.join(SD, "Themes/KidsOS by coorasse")
+SYSTEM_JSON = File.join(SD, "system.json")
+DEVICE_JSON = File.join(SYSDIR, "config/system/0123456789abcdef.json")
+KIDS_THEME_KEY = %Q{"theme":\t"/mnt/SDCARD/Themes/KidsOS by coorasse/"}
+ORIGINAL_SYSTEM_JSON = <<~JSON
+  {
+  \t"vol":\t10,
+  \t"theme":\t"/mnt/SDCARD/Themes/Silky by DiMo/",
+  \t"fontsize":\t24
+  }
+JSON
 # what Onion's Tweaks app writes when the parent had remapped the MENU button
 ORIGINAL_KEYMAP = <<~JSON
   {
@@ -125,6 +136,7 @@ def build_sd_card
     # the launcher as the device would receive it from "make deploy"
     %w[launch.sh game.sh covers.sh startup.sh install.sh uninstall.sh].each { |f| FileUtils.cp("#{ROOT}/onion/#{f}", "#{SD}/.kidsos/") }
     FileUtils.cp_r("#{ROOT}/onion/app", "#{SD}/.kidsos/app")
+    FileUtils.cp_r("#{ROOT}/onion/theme", "#{SD}/.kidsos/theme")
     FileUtils.cp("#{ROOT}/onion/bootScreen.png", "#{SD}/.kidsos/bootScreen.png")
   end
   stub_scripts
@@ -139,6 +151,9 @@ def build_sd_card
   File.write(KEYMAP, ORIGINAL_KEYMAP)
   FileUtils.mkdir_p("#{SYSDIR}/res")
   File.write("#{SYSDIR}/res/miyoo354_system.json", "{\"vol\": 20, \"mute\": 0}\n")
+  # the parent's MainUI settings as runtime.sh leaves them: on the card, mirrored per device under config/
+  FileUtils.mkdir_p("#{SYSDIR}/config/system")
+  [SYSTEM_JSON, DEVICE_JSON].each { |f| File.write(f, ORIGINAL_SYSTEM_JSON) }
   # an earlier installer replaced Onion's boot picture and kept it under config/
   File.write("#{SYSDIR}/res/bootScreen.png", "kids boot picture from an earlier installer\n")
   File.write("#{SYSDIR}/config/bootScreen.png.kidsos-orig", "onion boot picture\n")
@@ -247,6 +262,10 @@ check "kids boot screen installed as a theme override",
       (File.read(BOOT_OVERRIDE) == File.read("#{ROOT}/onion/bootScreen.png") rescue false)
 check "Onion's boot picture put back from the earlier installer's backup",
       (File.read("#{SYSDIR}/res/bootScreen.png") == "onion boot picture\n" rescue false) && !File.exist?("#{SYSDIR}/config/bootScreen.png.kidsos-orig")
+check "KidsOS theme installed next to Onion's themes",
+      File.exist?("#{THEME}/config.json") && File.exist?("#{THEME}/skin/ic-MENU+A.png") && File.exist?("#{THEME}/skin/extra/bootScreen.png")
+check "KidsOS theme set as the default in system.json and its per-device mirror",
+      [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(KIDS_THEME_KEY) && File.read(f).include?(%Q{"vol":\t10}) }, File.read(SYSTEM_JSON)
 check "KidsOS app installed into Onion's Apps", File.exist?("#{SD}/App/KidsOS/launch.sh") && File.exist?("#{SD}/App/KidsOS/config.json") && File.exist?("#{SD}/App/KidsOS/icon.png")
 check_boot_sequence ["kidsos run 1", "fakeapp", "real gameSwitcher --overlay", "cmd_to_run.sh kept during overlay",
                      "kidsos run 2", "real MainUI-354-clean", "shutdown"]
@@ -279,7 +298,10 @@ second = install_log
 check "hook exits 0", ok, out
 check "shims left alone", second.scan("already shimmed").size == MAINUIS.size + 1, second
 check "keymap left alone", second.include?("keymap already set"), second
+check "theme left alone", second.include?("KidsOS theme already installed") && !second.include?("set as default"), second
 check "RetroArch config left alone", second.include?("thumbnails already enabled") && events.count { |l| l == "patch_ra_cfg /tmp/kidsos_ra.cfg" } == 1, second
+ok, out = in_container("rm -f config/theme-set /tmp/settings_changed && sh /mnt/SDCARD/.kidsos/install.sh > /dev/null && test -f /tmp/settings_changed && echo reload")
+check "keymon is told to reload system.json after the theme is set", ok && out.include?("reload"), out
 
 if DIST_ZIP
   puts "== Onion update: the installer stub wipes .tmp_update except config/ and onionVersion/, the pak is unpacked again"
@@ -341,6 +363,9 @@ check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out
 check "uninstall.sh removes the KidsOS app", out.include?("KidsOS app removed") && !File.exist?("#{SD}/App/KidsOS"), out
 check "uninstall.sh removes the boot screen override", out.include?("boot screen restored") && !File.exist?(BOOT_OVERRIDE), out
+check "uninstall.sh removes the theme and points Onion back at its default one",
+      out.include?("KidsOS theme removed") && !File.exist?(THEME) &&
+      [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"theme":\t"/mnt/SDCARD/Themes/Default/"}) }, out
 (MAINUIS + %w[gameSwitcher]).each do |b|
   check "#{b} restored", File.exist?("#{SYSDIR}/bin/#{b}") && digest("#{SYSDIR}/bin/#{b}") == originals[b]
 end

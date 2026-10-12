@@ -115,6 +115,31 @@ write_app() {
 	echo "KidsOS app installed"
 }
 
+# The KidsOS theme (Onion's menu in the kids colours) is copied next to Onion's themes. Onion keeps the active
+# theme in system.json and mirrors it in config/system/<device>.json at shutdown, so both get the key; only
+# the first time, a parent who picked another theme in the Themes app keeps it. keymon holds system.json in
+# memory and rewrites the whole file on every volume key, so it is told to reload it.
+write_theme() {
+	src="$KIDS/theme/KidsOS by coorasse"
+	dst="/mnt/SDCARD/Themes/KidsOS by coorasse"
+	[ -d "$src" ] || return 0
+	if [ -d "$dst" ] && cmp -s "$src/config.json" "$dst/config.json" && cmp -s "$src/preview.png" "$dst/preview.png"; then
+		echo "KidsOS theme already installed"
+	else
+		mkdir -p "$dst" && cp -R "$src/." "$dst/" || fail "cannot install the KidsOS theme"
+		echo "KidsOS theme installed"
+	fi
+	[ -f "$CONFIG/theme-set" ] && return 0
+	[ -f /mnt/SDCARD/system.json ] || return 0
+	for json in /mnt/SDCARD/system.json "$CONFIG"/system/*.json; do
+		[ -f "$json" ] || continue
+		sed -i 's#"theme":[[:space:]]*"[^"]*"#"theme":\t"/mnt/SDCARD/Themes/KidsOS by coorasse/"#' "$json" ||
+			fail "cannot set the theme in $(basename "$json")"
+	done
+	touch /tmp/settings_changed
+	touch "$CONFIG/theme-set" && echo "KidsOS theme set as default"
+}
+
 # Onion's bootScreen looks for the picture in Saves/CurrentProfile/theme/skin/extra/ first, then in the theme,
 # then in .tmp_update/res/: the kids one goes to the first place so it wins over every theme. Onion's "Reset
 # theme overrides" removes it and the next boot puts it back.
@@ -159,6 +184,7 @@ write_shim gameSwitcher "	if [ \"\$1\" != \"--overlay\" ]; then
 write_keymap
 write_startup_hook
 write_app
+write_theme
 write_boot_screen
 # the resume screen shows RetroArch's own picture of the auto save state; Onion ships with thumbnails off
 if grep -q 'savestate_thumbnail_enable = "true"' /mnt/SDCARD/RetroArch/.retroarch/retroarch.cfg 2> /dev/null; then

@@ -25,6 +25,14 @@ elif [ -f "$mw.kidsos-none" ]; then
 fi
 rm -f "$SYS/startup/kidsos.sh" && echo "startup hook removed"
 rm -rf /mnt/SDCARD/App/KidsOS && echo "KidsOS app removed"
+if [ -f "$CONFIG/theme-set" ]; then
+	for json in /mnt/SDCARD/system.json "$CONFIG"/system/*.json; do
+		[ -f "$json" ] || continue
+		sed -i 's#"theme":[[:space:]]*"/mnt/SDCARD/Themes/KidsOS by coorasse/"#"theme":\t"/mnt/SDCARD/Themes/Default/"#' "$json"
+	done
+	rm -f "$CONFIG/theme-set"
+fi
+rm -rf "/mnt/SDCARD/Themes/KidsOS by coorasse" && echo "KidsOS theme removed"
 rm -f /mnt/SDCARD/Saves/CurrentProfile/theme/skin/extra/bootScreen.png && echo "boot screen restored"
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null
 rm -rf /mnt/SDCARD/.kidsos

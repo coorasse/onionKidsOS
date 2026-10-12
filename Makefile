@@ -54,10 +54,6 @@ shots-resume: build/kidsos
 covers:
 	python3 tools/make_covers.py
 
-icon:
-	python3 tools/make_icon.py
-	python3 tools/make_splash.py
-
 # Box art for the real card from thumbnails.libretro.com: make fetch-covers SD=/Volumes/ONIONOS
 SD ?= /Volumes/ONIONOS
 fetch-covers:
@@ -86,7 +82,7 @@ pak: miyoomini
 	rm -rf build/pak && mkdir -p $(PAK_DIR)/res
 	cp build/miyoomini/kidsos.elf $(PAK_DIR)/
 	cp pak/launch.sh $(PAK_DIR)/
-	cp assets/BPreplayBold-unhinted.otf $(PAK_DIR)/res/
+	cp assets/Fredoka-Bold.ttf $(PAK_DIR)/res/
 	cd build/pak && rm -f ../KidsOS-miyoomini.zip && zip -qr ../KidsOS-miyoomini.zip Tools
 	@echo "Copy build/pak/Tools onto the SD card root (or unzip build/KidsOS-miyoomini.zip there)."
 
@@ -106,8 +102,9 @@ DIST = build/onion/dist/.kidsos
 onion-dist: onion
 	rm -rf build/onion/dist && mkdir -p $(DIST)/res
 	cp build/onion/kidsos.elf build/onion/coinmon.elf build/onion/libcoinlock.so onion/launch.sh onion/game.sh onion/covers.sh onion/startup.sh onion/install.sh onion/uninstall.sh $(DIST)/
-	cp assets/BPreplayBold-unhinted.otf $(DIST)/res/
+	cp assets/Fredoka-Bold.ttf $(DIST)/res/
 	cp -R onion/app $(DIST)/app
+	cp -R onion/theme $(DIST)/theme
 	cp onion/bootScreen.png $(DIST)/
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
@@ -171,7 +168,7 @@ test-covers:
 
 # restart the UI loop without rebooting: Onion's runtime.sh comes straight back to the kids launcher
 device-restart:
-	$(SSH) 'rm -f /tmp/kidsos_exit; killall MainUI kidsos.elf 2>/dev/null; true'
+	$(SSH) 'rm -f /tmp/kidsos_exit; killall MainUI MainUI-354-clean.real MainUI-354-expert.real kidsos.elf 2>/dev/null; true'
 
 device-log:
 	$(SSH) 'cat /mnt/SDCARD/.kidsos/kidsos.log; echo --- coinmon; tail -20 /mnt/SDCARD/.kidsos/coinmon.log 2>/dev/null; echo --- runtime; tail -40 /mnt/SDCARD/.tmp_update/logs/runtime.log 2>/dev/null'
@@ -198,4 +195,4 @@ device-shots:
 clean:
 	rm -rf build shots/*.png shots/onion
 
-.PHONY: run shots shots-onion shots-coins shots-resume covers icon miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean
+.PHONY: run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean

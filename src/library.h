@@ -16,6 +16,9 @@ typedef struct Game {
 	SDL_Surface *cover;
 	int cover_tried;
 	SDL_Surface *scaled;  /* render cache */
+	SDL_Surface *tiles[2];   /* the composed, tilted carousel cards (kid_ui): neighbour and chosen */
+	int *tile_spans[2];      /* their opaque runs, for the fast blit */
+	SDL_Surface *tile_cover; /* the cover they were drawn with */
 	SDL_Surface *resume_screen; /* RetroArch save state thumbnail */
 	int resume_tried;
 	int scaled_w, scaled_h;

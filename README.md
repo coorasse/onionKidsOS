@@ -1,6 +1,11 @@
-# KidsOS for the Miyoo Mini Plus
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-cream.png">
+    <img src="docs/images/logo.png" width="480" alt="KidsOS">
+  </picture>
+</p>
 
-<img src="docs/images/kidsos.png" width="120" align="right" alt="KidsOS icon">
+# KidsOS for the Miyoo Mini Plus
 
 A Miyoo Mini Plus for small kids. Turn it on, pick a game, play. Nothing else.
 
@@ -165,6 +170,9 @@ folders that count as arcade. To hand out today's coins again from the computer,
 
 Everything else, including the emulator's own menu, is out of the kid's reach. After SELECT + START you can
 change brightness, theme music, Wi-Fi and so on in *Apps* › *Tweaks*, like on plain Onion.
+
+Onion's own menu comes in the KidsOS colours too: the *KidsOS by coorasse* theme is installed with the
+launcher and switched on the first time. Any other theme picked in Onion's *Themes* app stays.
 
 ## Updating
 

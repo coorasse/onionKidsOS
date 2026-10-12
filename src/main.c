@@ -86,24 +86,24 @@ static uint32_t script_step(Script *s, const char **shot, int *done)
 
 static void render_playing(Game *g)
 {
-	gfx_clear(0x1C1C1E);
+	gfx_clear(INK);
 #ifdef PLATFORM_DESKTOP
 	const char *why = "Desktop build: nothing is launched";
 #else
 	const char *why = "No emulator found for this system";
 #endif
-	gfx_text(font_med, why, 0x8E8E93, 320, 150, ALIGN_CENTER);
+	gfx_text(font_med, why, MUTED, 320, 150, ALIGN_CENTER);
 	gfx_text_fit(font_big, g->name, 0xFFFFFF, 320, 200, ALIGN_CENTER, 600);
 	char buf[600];
 	snprintf(buf, sizeof(buf), "%s  -  %s", g->system_tag, g->rel);
-	gfx_text_fit(font_small, buf, 0x8E8E93, 320, 250, ALIGN_CENTER, 600);
+	gfx_text_fit(font_small, buf, MUTED, 320, 250, ALIGN_CENTER, 600);
 	if (coins_is_arcade(g->system_tag)) {
 		snprintf(buf, sizeof(buf), coins_left() > 0 ? "Coins left today: %d of %d   (SELECT inserts a coin)"
 		                                          : "Coins left today: %d of %d   (SELECT does nothing now)",
 		         coins_left(), coins_limit());
-		gfx_text(font_small, buf, 0xF5B800, 320, 300, ALIGN_CENTER);
+		gfx_text(font_small, buf, YELLOW, 320, 300, ALIGN_CENTER);
 	}
-	gfx_text(font_small, "Press B to go back", 0x8E8E93, 320, 420, ALIGN_CENTER);
+	gfx_text(font_small, "Press B to go back", MUTED, 320, 420, ALIGN_CENTER);
 }
 
 static void on_terminate(int sig)
@@ -158,6 +158,9 @@ int main(int argc, char **argv)
 	printf("library: %d systems, %d games (%s)\n", lib.system_count, lib.game_count, root);
 	if (!scripted) PLAT_audio_init();
 
+	/* KIDS_PROFILE=1: average time per frame spent drawing and flipping, printed at exit */
+	int profile = getenv("KIDS_PROFILE") != NULL;
+	uint32_t prof_render = 0, prof_flip = 0, prof_frames = 0;
 	int state = ST_KID;
 	Game *playing = NULL;
 	kid_ui_enter();
@@ -177,6 +180,7 @@ int main(int argc, char **argv)
 			now = PLAT_ticks();
 			PLAT_power_update(now);
 		}
+		uint32_t t_frame = PLAT_ticks();
 		uint32_t dt = now - last;
 		last = now;
 		if (dt > 100) dt = 100;
@@ -245,7 +249,14 @@ int main(int argc, char **argv)
 		}
 
 		osd_render();
+		uint32_t t_render = PLAT_ticks();
 		PLAT_flip(screen);
+		if (profile) {
+			uint32_t t_flip = PLAT_ticks();
+			prof_render += t_render - t_frame;
+			prof_flip += t_flip - t_render;
+			prof_frames++;
+		}
 		if (shot) {
 			char path[1024];
 			snprintf(path, sizeof(path), "%s/%s.png", shot_dir, shot);
@@ -258,6 +269,9 @@ int main(int argc, char **argv)
 		}
 	}
 out:
+	if (profile && prof_frames)
+		printf("profile: %u frames, render %.1f ms, flip %.1f ms\n", prof_frames, (double)prof_render / prof_frames,
+		       (double)prof_flip / prof_frames);
 	gfx_quit();
 	PLAT_quit();
 	return 0;

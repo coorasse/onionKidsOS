@@ -92,7 +92,7 @@ const char *PLAT_sdcard_root(void)
 const char *PLAT_font_path(void)
 {
 	static const char *candidates[] = {
-		"assets/BPreplayBold-unhinted.otf",
+		"assets/Fredoka-Bold.ttf",
 		"/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf",
 		"/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
 		"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",

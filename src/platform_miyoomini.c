@@ -177,7 +177,7 @@ const char *PLAT_sdcard_root(void)
 
 const char *PLAT_font_path(void)
 {
-	return "res/BPreplayBold-unhinted.otf";
+	return "res/Fredoka-Bold.ttf";
 }
 
 int PLAT_save_screenshot(SDL_Surface *s, const char *path)

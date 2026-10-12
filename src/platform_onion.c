@@ -81,8 +81,9 @@ SDL_Surface *PLAT_init(void)
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO);
 	SDL_ShowCursor(0);
 	/* Miyoo's SDL rotates the picture 180 degrees only in its hardware blit (MI_GFX); a software frame
-	 * copied into the hardware surface lands unrotated, so PLAT_flip rotates it while copying */
-	video = SDL_SetVideoMode(SCREEN_W, SCREEN_H, 32, SDL_HWSURFACE);
+	 * copied into the hardware surface lands unrotated, so PLAT_flip rotates it while copying. Double
+	 * buffering makes SDL_Flip swap framebuffer pages, so the panel never scans a half-written frame. */
+	video = SDL_SetVideoMode(SCREEN_W, SCREEN_H, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
 	if (!video) {
 		fprintf(stderr, "SDL_SetVideoMode: %s\n", SDL_GetError());
 		exit(1);
@@ -102,7 +103,13 @@ static void blit_rotated_180(SDL_Surface *src, SDL_Surface *dst)
 	for (int y = 0; y < src->h; y++) {
 		const uint32_t *row = (const uint32_t *)((const uint8_t *)s + y * src->pitch);
 		uint32_t *out = (uint32_t *)((uint8_t *)d + (src->h - 1 - y) * dst->pitch) + src->w - 1;
-		for (int x = 0; x < src->w; x++) *out-- = row[x];
+		for (int x = 0; x < src->w; x += 4) {
+			out[0] = row[x];
+			out[-1] = row[x + 1];
+			out[-2] = row[x + 2];
+			out[-3] = row[x + 3];
+			out -= 4;
+		}
 	}
 	if (SDL_MUSTLOCK(dst)) SDL_UnlockSurface(dst);
 }
@@ -203,7 +210,7 @@ const char *PLAT_sdcard_root(void)
 
 const char *PLAT_font_path(void)
 {
-	return "res/BPreplayBold-unhinted.otf";
+	return "res/Fredoka-Bold.ttf";
 }
 
 int PLAT_save_screenshot(SDL_Surface *s, const char *path)

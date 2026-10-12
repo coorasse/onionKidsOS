@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include "kid_ui.h"
 #include "gfx.h"
@@ -7,14 +8,12 @@
 
 #define MAX_KID_GAMES 64
 #define HOLD_MS 3000
-#define BUTTON_A_COLOR 0x3DBE5B
 #define EXIT_COMBO (BTN_SELECT | BTN_START) /* held for HOLD_MS: back to the host UI until the next reboot */
 
 static Game *games[MAX_KID_GAMES];
 static int count, sel;
 static float scroll;
 static uint32_t hold_ms;
-static SDL_Surface *background;
 static uint32_t notice_ms; /* "no coins left" bubble, counts down */
 static int coins_left_cache, coins_limit_cache, arcade_present;
 static SDL_Surface *coin_icon[2]; /* gold, grey */
@@ -110,32 +109,125 @@ static void draw_fallback(Game *g, int cx, int cy, int inner, int radius)
 	gfx_text(font, initial, 0xFFFFFF, cx, cy - TTF_FontHeight(font) / 2, ALIGN_CENTER);
 }
 
-static void draw_tile(Game *g, int cx, int cy, int size, uint8_t alpha)
+/* The two looks of a card: the chosen one, big and leaning left, and a neighbour, smaller and leaning
+ * right. Both are white with an ink border and a hard ink shadow, the cover inside, like blocks put down
+ * by a child. */
+enum { TILE_SMALL, TILE_BIG };
+static const int tile_size[2] = {195, 300}, tile_shadow[2] = {6, 9}, tile_border[2] = {4, 5};
+static const float tile_tilt[2] = {2.5f, -2.0f};
+
+/* A neighbour sits back at 60%: the fade is baked into its colours over the cream of the paper, so the
+ * card stays opaque and a frame of the slide copies it instead of blending every pixel. */
+static void fade_into_paper(SDL_Surface *s, int amount)
 {
-	int radius = size / 12;
-	SDL_Rect shadow = {cx - size / 2, cy - size / 2 + size / 30, size, size};
-	gfx_fill_rounded_alpha(shadow, radius, 0x3A2E1A, (uint8_t)(alpha / 6));
+	const unsigned cr = (CREAM >> 16) & 255, cg = (CREAM >> 8) & 255, cb = CREAM & 255;
+	SDL_LockSurface(s);
+	uint32_t *p = s->pixels;
+	int pitch = s->pitch / 4;
+	for (int y = 0; y < s->h; y++)
+		for (int x = 0; x < s->w; x++) {
+			uint32_t c = p[y * pitch + x];
+			if (!(c >> 24)) continue;
+			unsigned r = ((c >> 16 & 255) * (255 - amount) + cr * amount) / 255;
+			unsigned g = ((c >> 8 & 255) * (255 - amount) + cg * amount) / 255;
+			unsigned b = ((c & 255) * (255 - amount) + cb * amount) / 255;
+			p[y * pitch + x] = (c & 0xFF000000) | r << 16 | g << 8 | b;
+		}
+	SDL_UnlockSurface(s);
+}
 
-	SDL_Rect card = {cx - size / 2, cy - size / 2, size, size};
-	if (alpha == 255) gfx_fill_rounded(card, radius, 0xFFFFFF);
-	else gfx_fill_rounded_alpha(card, radius, 0xFFFFFF, alpha);
+static SDL_Surface *compose_tile(Game *g, int which)
+{
+	int size = tile_size[which], shadow = tile_shadow[which], radius = size / 15;
+	SDL_Surface *comp = gfx_new_surface(size + shadow, size + shadow);
+	if (!comp) return NULL;
+	gfx_set_target(comp);
+	SDL_Rect drop = {shadow, shadow, size, size};
+	gfx_fill_rounded(drop, radius, INK);
+	SDL_Rect card = {0, 0, size, size};
+	gfx_fill_rounded_border(card, radius, 0xFFFFFF, INK, tile_border[which]);
 
-	int inner = size - 2 * (size / 14);
+	int inner = size - 2 * (size / 14), cx = size / 2, cy = size / 2;
 	SDL_Surface *cover = game_cover(g);
-	if (!cover) {
+	if (cover) {
+		float s = fminf((float)inner / (float)cover->w, (float)inner / (float)cover->h);
+		int w = (int)((float)cover->w * s), h = (int)((float)cover->h * s);
+		SDL_Surface *scaled = gfx_scale(cover, w, h);
+		if (scaled) {
+			gfx_round_corners(scaled, radius / 2);
+			gfx_blit(scaled, cx - w / 2, cy - h / 2);
+			SDL_FreeSurface(scaled);
+		}
+	} else {
 		draw_fallback(g, cx, cy, inner, radius / 2);
-		return;
 	}
-	float s = fminf((float)inner / (float)cover->w, (float)inner / (float)cover->h);
-	int w = (int)((float)cover->w * s), h = (int)((float)cover->h * s);
-	if (!g->scaled || g->scaled_w != w || g->scaled_h != h) {
-		if (g->scaled) SDL_FreeSurface(g->scaled);
-		g->scaled = gfx_scale(cover, w, h);
-		gfx_round_corners(g->scaled, radius / 2);
-		g->scaled_w = w;
-		g->scaled_h = h;
+	gfx_set_target(NULL);
+
+	SDL_Surface *tilted = gfx_rotate(comp, tile_tilt[which]);
+	SDL_FreeSurface(comp);
+	if (tilted && which == TILE_SMALL) fade_into_paper(tilted, 102);
+	return tilted;
+}
+
+static void release_tiles(Game *g)
+{
+	for (int i = 0; i < 2; i++) {
+		if (g->tiles[i]) SDL_FreeSurface(g->tiles[i]);
+		free(g->tile_spans[i]);
+		g->tiles[i] = NULL;
+		g->tile_spans[i] = NULL;
 	}
-	gfx_blit_alpha(g->scaled, cx - w / 2, cy - h / 2, alpha);
+}
+
+static SDL_Surface *tile(Game *g, int which)
+{
+	if (g->tile_cover != g->cover) release_tiles(g);
+	if (!g->tiles[which]) {
+		g->tiles[which] = compose_tile(g, which);
+		if (g->tiles[which]) g->tile_spans[which] = gfx_opaque_spans(g->tiles[which]);
+		g->tile_cover = g->cover;
+	}
+	return g->tiles[which];
+}
+
+/* One look of the card at the size the carousel wants right now. The pre-rendered cards are only
+ * scaled, never redrawn, so a frame of the animation stays cheap on the device. */
+static void blit_tile(Game *g, int which, int cx, int cy, int size, uint8_t alpha)
+{
+	SDL_Surface *src = tile(g, which);
+	if (!src) return;
+	float k = (float)size / (float)tile_size[which];
+	int w = (int)((float)src->w * k), h = (int)((float)src->h * k);
+	/* the shadow makes the surface bigger than the card: centre the card, not the surface */
+	int off = (int)((float)tile_shadow[which] * k / 2);
+	gfx_blit_alpha_scaled(src, g->tile_spans[which], cx + off - w / 2, cy + off - h / 2, w, h, alpha);
+}
+
+/* d: distance from the chosen slot. Around the half-way point the two looks are cross-faded, so the
+ * change of tilt happens while the card is moving fast. */
+static void draw_tile(Game *g, int cx, int cy, int size, float d, uint8_t alpha)
+{
+	float away = fabsf(d);
+	float big = away <= 0.4f ? 1 : away >= 0.6f ? 0 : (0.6f - away) / 0.2f;
+	if (big < 1) blit_tile(g, TILE_SMALL, cx, cy, size, alpha);
+	if (big > 0) blit_tile(g, TILE_BIG, cx, cy, size, (uint8_t)((float)alpha * big));
+}
+
+/* The name under the row, rendered once per game: rasterising it every frame costs more than the tiles. */
+static void draw_title(const char *name)
+{
+	static SDL_Surface *title;
+	static char shown[128];
+	if (!title || strcmp(shown, name) != 0) {
+		if (title) SDL_FreeSurface(title);
+		title = gfx_new_surface(560, TTF_FontHeight(font_big) + 4);
+		if (!title) return;
+		gfx_set_target(title);
+		gfx_text_fit(font_big, name, INK, 280, 0, ALIGN_CENTER, 560);
+		gfx_set_target(NULL);
+		snprintf(shown, sizeof(shown), "%s", name);
+	}
+	gfx_blit(title, 320 - 280, 388);
 }
 
 /* Daily coin counter in the top left corner, shown while an arcade game is in the list. */
@@ -148,18 +240,36 @@ static void draw_coin_counter(void)
 	gfx_blit(coin_icon[grey], x, y);
 	char buf[8];
 	snprintf(buf, sizeof(buf), "%d", coins_left_cache);
-	gfx_text(font_big, buf, grey ? 0x8A8580 : 0x7A4A00, x + size + 6, y + size / 2 - TTF_FontHeight(font_big) / 2,
+	gfx_text(font_big, buf, grey ? MUTED : INK, x + size + 6, y + size / 2 - TTF_FontHeight(font_big) / 2,
 	         ALIGN_LEFT);
 }
 
 static void draw_hold_progress(void)
 {
 	if (hold_ms < 400) return;
-	SDL_Rect track = {170, 14, 300, 10};
-	gfx_fill_rounded(track, 5, 0xFFFFFF);
-	SDL_Rect fill = {170, 14, (int)(300 * hold_ms / HOLD_MS), 10};
-	if (fill.w > 10) gfx_fill_rounded(fill, 5, 0x4CAF50);
-	gfx_text(font_small, "Keep holding to leave kids mode", 0x5A5A5A, 320, 28, ALIGN_CENTER);
+	SDL_Rect track = {170, 12, 300, 14};
+	gfx_fill_rounded_border(track, 7, 0xFFFFFF, INK, 2);
+	SDL_Rect fill = {172, 14, (int)(296 * hold_ms / HOLD_MS), 10};
+	if (fill.w > 10) gfx_fill_rounded(fill, 5, GREEN);
+	gfx_text(font_small, "Keep holding to leave kids mode", INK, 320, 30, ALIGN_CENTER);
+}
+
+/* The page dots are little blocks, each put down at its own angle; white, the current one red. */
+static SDL_Surface *dot_block(int red, int slot)
+{
+	static SDL_Surface *blocks[2][4];
+	static const float tilts[4] = {-6, 4, -3, 5};
+	SDL_Surface **block = &blocks[red][slot];
+	if (*block) return *block;
+	SDL_Surface *square = gfx_new_surface(14, 14);
+	if (!square) return NULL;
+	gfx_set_target(square);
+	SDL_Rect r = {0, 0, 14, 14};
+	gfx_fill_rounded_border(r, 3, red ? RED : 0xFFFFFF, INK, 2);
+	gfx_set_target(NULL);
+	*block = gfx_rotate(square, tilts[slot]);
+	SDL_FreeSurface(square);
+	return *block;
 }
 
 static void draw_dots(void)
@@ -168,32 +278,24 @@ static void draw_dots(void)
 	if (count > 14) {
 		char buf[32];
 		snprintf(buf, sizeof(buf), "%d / %d", sel + 1, count);
-		gfx_text(font_small, buf, 0x6A6A6A, 320, 446, ALIGN_CENTER);
+		gfx_text(font_small, buf, INK, 320, 446, ALIGN_CENTER);
 		return;
 	}
-	int spacing = 18, x0 = 320 - (count - 1) * spacing / 2;
+	int spacing = 22, x0 = 320 - (count - 1) * spacing / 2;
 	for (int i = 0; i < count; i++) {
-		int r = i == sel ? 6 : 4;
-		SDL_Rect d = {x0 + i * spacing - r, 452 - r, 2 * r, 2 * r};
-		gfx_fill_rounded(d, r, i == sel ? 0x4A4A4A : 0xB8B0A4);
+		SDL_Surface *block = dot_block(i == sel, i % 4);
+		if (block) gfx_blit(block, x0 + i * spacing - block->w / 2, 452 - block->h / 2);
 	}
 }
 
 void kid_ui_render(void)
 {
-	if (!background) {
-		background = gfx_new_surface(SCREEN_W, SCREEN_H);
-		gfx_set_target(background);
-		SDL_Rect full = {0, 0, SCREEN_W, SCREEN_H};
-		gfx_vgradient(full, 0xBFE6FF, 0xFFF3D6);
-		gfx_set_target(NULL);
-	}
-	gfx_blit(background, 0, 0);
+	gfx_blit(gfx_paper(), 0, 0);
 
 	if (!count) {
-		gfx_text(font_big, "No games yet", 0x4A4A4A, 320, 190, ALIGN_CENTER);
-		gfx_text(font_med, "Mark games as favourites in " HOST_SYSTEM_NAME, 0x7A7A7A, 320, 240, ALIGN_CENTER);
-		gfx_text(font_med, "Hold SELECT + START to get there", 0x7A7A7A, 320, 275, ALIGN_CENTER);
+		gfx_text(font_big, "No games yet", INK, 320, 190, ALIGN_CENTER);
+		gfx_text(font_med, "Mark games as favourites in " HOST_SYSTEM_NAME, 0x55555F, 320, 240, ALIGN_CENTER);
+		gfx_text(font_med, "Hold SELECT + START to get there", 0x55555F, 320, 275, ALIGN_CENTER);
 		draw_hold_progress();
 		return;
 	}
@@ -201,6 +303,8 @@ void kid_ui_render(void)
 	const int spacing = 300, base = 300, cy = 222;
 	int first = sel - 2 < 0 ? 0 : sel - 2;
 	int last = sel + 2 >= count ? count - 1 : sel + 2;
+	for (int i = 0; i < count; i++)
+		if (i < first || i > last) release_tiles(games[i]);
 	for (int pass = 0; pass < 2; pass++) {
 		for (int i = first; i <= last; i++) {
 			float d = (float)i - scroll;
@@ -208,25 +312,27 @@ void kid_ui_render(void)
 			if ((pass == 1) != selected) continue;
 			float scale = 1.0f - fabsf(d) * 0.35f;
 			if (scale < 0.5f) scale = 0.5f;
-			float dim = fabsf(d) * 120.0f;
-			uint8_t alpha = (uint8_t)(255 - (dim > 100 ? 100 : dim));
-			if (game_blocked(games[i])) alpha = (uint8_t)(alpha * 0.55f);
+			uint8_t alpha = game_blocked(games[i]) ? 140 : 255;
 			int size = (int)(base * scale), tx = 320 + (int)(d * spacing);
-			draw_tile(games[i], tx, cy, size, alpha);
+			if (tx + size / 2 + 20 < 0 || tx - size / 2 - 20 > SCREEN_W) {
+				release_tiles(games[i]);
+				continue;
+			}
+			draw_tile(games[i], tx, cy, size, d, alpha);
 		}
 	}
 
-	gfx_text_fit(font_big, games[sel]->name, 0x333333, 320, 388, ALIGN_CENTER, 560);
+	draw_title(games[sel]->name);
 	draw_dots();
 	draw_coin_counter();
-	gfx_button_hint(622, 456, "A", BUTTON_A_COLOR, "Play", ALIGN_RIGHT);
+	gfx_button_hint(622, 456, "A", GREEN, "Play", ALIGN_RIGHT);
 	draw_hold_progress();
 
 	if (notice_ms > 0) {
 		const char *msg = "No coins left today, come back tomorrow";
 		int w = gfx_text_width(font_med, msg) + 48, cx = 370; /* centred in the space right of the coin counter */
 		SDL_Rect pill = {cx - w / 2, 10, w, 42};
-		gfx_fill_rounded_alpha(pill, 21, 0x3A2E1A, 200);
+		gfx_fill_rounded(pill, 21, INK);
 		gfx_text(font_med, msg, 0xFFFFFF, cx, 18, ALIGN_CENTER);
 	}
 }

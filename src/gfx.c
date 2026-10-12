@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <SDL_image.h>
 #include "gfx.h"
@@ -27,7 +28,7 @@ void gfx_init(SDL_Surface *screen, const char *font_path)
 	TTF_Init();
 	argb_reference = gfx_new_surface(1, 1);
 	font_huge = open_font(font_path, 120);
-	font_big = open_font(font_path, 34);
+	font_big = open_font(font_path, 36);
 	font_med = open_font(font_path, 24);
 	font_small = open_font(font_path, 17);
 }
@@ -112,6 +113,50 @@ void gfx_vgradient(SDL_Rect r, uint32_t top, uint32_t bottom)
 	}
 }
 
+void gfx_fill_rounded_border(SDL_Rect r, int radius, uint32_t fill, uint32_t border_rgb, int border_px)
+{
+	fill_rounded_on(target, r, radius, map_rgb(target, border_rgb));
+	SDL_Rect inner = {r.x + border_px, r.y + border_px, r.w - 2 * border_px, r.h - 2 * border_px};
+	if (inner.w > 0 && inner.h > 0) fill_rounded_on(target, inner, radius - border_px, map_rgb(target, fill));
+}
+
+static int dot_inside(float x, float y, const float *shape)
+{
+	float dx = x - shape[0], dy = y - shape[0];
+	return dx * dx + dy * dy <= shape[1] * shape[1];
+}
+
+static SDL_Surface *icon_from(int size, uint32_t rgb, int (*inside)(float, float, const float *), const float *shape);
+
+void gfx_dots(uint32_t rgb, int step, float radius, uint8_t alpha)
+{
+	int size = (int)ceilf(radius * 2) + 1;
+	float shape[2] = {(float)size / 2, radius};
+	SDL_Surface *dot = icon_from(size, rgb, dot_inside, shape);
+	if (!dot) return;
+	for (int y = step / 2; y < target->h; y += step)
+		for (int x = step / 2; x < target->w; x += step)
+			gfx_blit_alpha(dot, x - size / 2, y - size / 2, alpha);
+	SDL_FreeSurface(dot);
+}
+
+SDL_Surface *gfx_paper(void)
+{
+	static SDL_Surface *paper;
+	if (paper) return paper;
+	SDL_Surface *drawn = gfx_new_surface(gfx_screen->w, gfx_screen->h);
+	SDL_Surface *previous = target;
+	target = drawn;
+	gfx_clear(CREAM);
+	gfx_dots(0xE4DCCB, 22, 1.5f, 153);
+	target = previous;
+	/* in the screen's own format, without an alpha channel, the blit is a plain copy instead of a
+	 * blend of every pixel: this is drawn under every frame */
+	paper = SDL_ConvertSurface(drawn, gfx_screen->format, 0);
+	SDL_FreeSurface(drawn);
+	return paper;
+}
+
 SDL_Surface *gfx_new_surface(int w, int h)
 {
 	SDL_Surface *s = SDL_CreateRGBSurface(0, w, h, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -193,59 +238,234 @@ void gfx_round_corners(SDL_Surface *s, int rad)
 	SDL_UnlockSurface(s);
 }
 
+SDL_Surface *gfx_rotate(SDL_Surface *src, float degrees)
+{
+	float a = degrees * (float)M_PI / 180.0f, c = cosf(a), sn = sinf(a);
+	int w = (int)ceilf(fabsf((float)src->w * c) + fabsf((float)src->h * sn));
+	int h = (int)ceilf(fabsf((float)src->w * sn) + fabsf((float)src->h * c));
+	SDL_Surface *dst = gfx_new_surface(w, h);
+	if (!dst) return NULL;
+	SDL_LockSurface(src);
+	SDL_LockSurface(dst);
+	const uint32_t *sp = src->pixels;
+	uint32_t *dp = dst->pixels;
+	int spitch = src->pitch / 4, dpitch = dst->pitch / 4, sw = src->w, sh = src->h;
+	float scx = (float)sw / 2, scy = (float)sh / 2, dcx = (float)w / 2, dcy = (float)h / 2;
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			float dx = (float)x + 0.5f - dcx, dy = (float)y + 0.5f - dcy;
+			float fx = c * dx + sn * dy + scx - 0.5f, fy = -sn * dx + c * dy + scy - 0.5f;
+			int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+			if (x0 < -1 || y0 < -1 || x0 >= sw || y0 >= sh) {
+				dp[y * dpitch + x] = 0;
+				continue;
+			}
+			int wx = (int)((fx - (float)x0) * 256), wy = (int)((fy - (float)y0) * 256);
+			/* bilinear on straight alpha: the colour of transparent neighbours must not bleed in,
+			 * so the colours are weighted by alpha and divided out again */
+			unsigned a_sum = 0, r_sum = 0, g_sum = 0, b_sum = 0;
+			for (int j = 0; j < 2; j++) {
+				int sy = y0 + j;
+				if (sy < 0 || sy >= sh) continue;
+				for (int i = 0; i < 2; i++) {
+					int sx = x0 + i;
+					if (sx < 0 || sx >= sw) continue;
+					unsigned wgt = (unsigned)((i ? wx : 256 - wx) * (j ? wy : 256 - wy)); /* 0..65536 */
+					uint32_t p = sp[sy * spitch + sx];
+					unsigned wa = wgt * (p >> 24) >> 8;
+					a_sum += wa;
+					r_sum += wa * ((p >> 16) & 255);
+					g_sum += wa * ((p >> 8) & 255);
+					b_sum += wa * (p & 255);
+				}
+			}
+			if (!a_sum) {
+				dp[y * dpitch + x] = 0;
+				continue;
+			}
+			unsigned alpha = a_sum >> 8;
+			if (alpha > 255) alpha = 255;
+			dp[y * dpitch + x] = alpha << 24 | (r_sum / a_sum) << 16 | (g_sum / a_sum) << 8 | (b_sum / a_sum);
+		}
+	}
+	SDL_UnlockSurface(dst);
+	SDL_UnlockSurface(src);
+	return dst;
+}
+
 void gfx_blit(SDL_Surface *s, int x, int y)
 {
 	SDL_Rect dst = {x, y, 0, 0};
 	SDL_BlitSurface(s, NULL, target, &dst);
 }
 
-/* Software blend of an ARGB surface with an extra global alpha. SDL 1.2 ignores
- * per-surface alpha on surfaces that have per-pixel alpha, so this is done by hand
- * for both 32 bit (desktop) and 16 bit RGB565 (device) targets. */
-void gfx_blit_alpha(SDL_Surface *s, int x, int y, uint8_t alpha)
+/* exact x / 255 for x in 0..65025, without a division */
+#define DIV255(x) (((x) + 1 + ((x) >> 8)) >> 8)
+
+int *gfx_opaque_spans(SDL_Surface *s)
 {
-	if (alpha == 255) {
-		gfx_blit(s, x, y);
-		return;
+	int *spans = malloc(sizeof(int) * 2 * s->h);
+	if (!spans) return NULL;
+	SDL_LockSurface(s);
+	for (int y = 0; y < s->h; y++) {
+		const uint32_t *row = (const uint32_t *)((const uint8_t *)s->pixels + y * s->pitch);
+		int l = 0, r = s->w - 1;
+		while (l < s->w && (row[l] >> 24) != 255) l++;
+		while (r > l && (row[r] >> 24) != 255) r--;
+		spans[2 * y] = l;
+		spans[2 * y + 1] = l < s->w ? r : -1;
 	}
+	SDL_UnlockSurface(s);
+	return spans;
+}
+
+/* The pixel loops below are the hot path of the carousel on the device, where a branch per pixel
+ * costs more than the pixel: the opaque run of a row goes through the two branch-free loops, only
+ * its edges through the general one. */
+static void blend_row32(const uint32_t *restrict src, const int *restrict xs, uint32_t *restrict dst, int n,
+                        unsigned alpha, int rs, int gs, int bs)
+{
+	const uint32_t keep = ~((uint32_t)255 << rs | (uint32_t)255 << gs | (uint32_t)255 << bs);
+	for (int i = 0; i < n; i++) {
+		uint32_t p = src[xs[i]];
+		unsigned a = p >> 24;
+		if (!a) continue;
+		if (alpha != 255) a = DIV255(a * alpha);
+		unsigned sr = (p >> 16) & 255, sg = (p >> 8) & 255, sb = p & 255;
+		if (a == 255) {
+			dst[i] = (dst[i] & keep) | sr << rs | sg << gs | sb << bs;
+			continue;
+		}
+		uint32_t d = dst[i];
+		unsigned na = 255 - a;
+		unsigned dr = DIV255(((d >> rs) & 255) * na + sr * a);
+		unsigned dg = DIV255(((d >> gs) & 255) * na + sg * a);
+		unsigned db = DIV255(((d >> bs) & 255) * na + sb * a);
+		dst[i] = (d & keep) | dr << rs | dg << gs | db << bs;
+	}
+}
+
+/* opaque source pixels mixed in with one constant alpha */
+static void mix_row32(const uint32_t *restrict src, const int *restrict xs, uint32_t *restrict dst, int n,
+                      unsigned a, int rs, int gs, int bs)
+{
+	const uint32_t keep = ~((uint32_t)255 << rs | (uint32_t)255 << gs | (uint32_t)255 << bs);
+	const unsigned na = 255 - a;
+	for (int i = 0; i < n; i++) {
+		uint32_t p = src[xs[i]], d = dst[i];
+		unsigned dr = DIV255(((d >> rs) & 255) * na + ((p >> 16) & 255) * a);
+		unsigned dg = DIV255(((d >> gs) & 255) * na + ((p >> 8) & 255) * a);
+		unsigned db = DIV255((((d >> bs) & 255) * na) + (p & 255) * a);
+		dst[i] = (d & keep) | dr << rs | dg << gs | db << bs;
+	}
+}
+
+static void copy_row32(const uint32_t *restrict src, const int *restrict xs, uint32_t *restrict dst, int n,
+                       int same_layout)
+{
+	if (same_layout) {
+		for (int i = 0; i < n; i++) dst[i] = src[xs[i]];
+	} else {
+		for (int i = 0; i < n; i++) {
+			uint32_t p = src[xs[i]];
+			dst[i] = (dst[i] & 0xFF000000) | (p & 0xFFFFFF); /* only the ARGB/XRGB layouts are swapped here */
+		}
+	}
+}
+
+static void blend_row16(const uint32_t *restrict src, const int *restrict xs, uint16_t *restrict dst, int n,
+                        unsigned alpha)
+{
+	for (int i = 0; i < n; i++) {
+		uint32_t p = src[xs[i]];
+		unsigned a = p >> 24;
+		if (!a) continue;
+		if (alpha != 255) a = DIV255(a * alpha);
+		unsigned sr = (p >> 19) & 31, sg = (p >> 10) & 63, sb = (p >> 3) & 31;
+		if (a == 255) {
+			dst[i] = (uint16_t)(sr << 11 | sg << 5 | sb);
+			continue;
+		}
+		unsigned d = dst[i], na = 255 - a;
+		unsigned dr = DIV255(((d >> 11) & 31) * na + sr * a);
+		unsigned dg = DIV255(((d >> 5) & 63) * na + sg * a);
+		unsigned db = DIV255((d & 31) * na + sb * a);
+		dst[i] = (uint16_t)(dr << 11 | dg << 5 | db);
+	}
+}
+
+static void copy_row16(const uint32_t *restrict src, const int *restrict xs, uint16_t *restrict dst, int n)
+{
+	for (int i = 0; i < n; i++) {
+		uint32_t p = src[xs[i]];
+		dst[i] = (uint16_t)(((p >> 19) & 31) << 11 | ((p >> 10) & 63) << 5 | ((p >> 3) & 31));
+	}
+}
+
+/* Software blend of an ARGB surface with an extra global alpha, scaled on the way (nearest neighbour).
+ * SDL 1.2 ignores per-surface alpha on surfaces that have per-pixel alpha, so this is done by hand for
+ * both 32 bit (desktop, Onion) and 16 bit RGB565 (MinUI) targets. */
+void gfx_blit_alpha_scaled(SDL_Surface *s, const int *spans, int x, int y, int w, int h, uint8_t alpha)
+{
+	if (w < 1 || h < 1) return;
 	SDL_Rect clip;
 	SDL_GetClipRect(target, &clip);
 	int x0 = x > clip.x ? x : clip.x, y0 = y > clip.y ? y : clip.y;
-	int x1 = x + s->w < clip.x + clip.w ? x + s->w : clip.x + clip.w;
-	int y1 = y + s->h < clip.y + clip.h ? y + s->h : clip.y + clip.h;
+	int x1 = x + w < clip.x + clip.w ? x + w : clip.x + clip.w;
+	int y1 = y + h < clip.y + clip.h ? y + h : clip.y + clip.h;
 	if (x0 >= x1 || y0 >= y1) return;
+	int n = x1 - x0, xs[n];
+	for (int i = 0; i < n; i++) xs[i] = (int)(((long)(x0 + i - x) * 2 + 1) * s->w / (2 * w));
 
 	SDL_LockSurface(s);
 	SDL_LockSurface(target);
-	SDL_PixelFormat *f = target->format;
+	const SDL_PixelFormat *f = target->format;
+	int bpp = f->BytesPerPixel, rs = f->Rshift, gs = f->Gshift, bs = f->Bshift;
+	int same_layout = rs == 16 && gs == 8 && bs == 0 && f->Amask == 0;
 	for (int ty = y0; ty < y1; ty++) {
-		const uint32_t *sp = (const uint32_t *)((const uint8_t *)s->pixels + (ty - y) * s->pitch) + (x0 - x);
+		int sy = (int)(((long)(ty - y) * 2 + 1) * s->h / (2 * h));
+		const uint32_t *srow = (const uint32_t *)((const uint8_t *)s->pixels + sy * s->pitch);
 		uint8_t *drow = (uint8_t *)target->pixels + ty * target->pitch;
-		for (int tx = x0; tx < x1; tx++, sp++) {
-			uint32_t p = *sp;
-			int a = (int)(p >> 24) * alpha / 255;
-			if (!a) continue;
-			int sr = (p >> 16) & 255, sg = (p >> 8) & 255, sb = p & 255;
-			if (f->BytesPerPixel == 2) {
-				uint16_t *d = (uint16_t *)drow + tx;
-				int dr = (*d >> 11) & 31, dg = (*d >> 5) & 63, db = *d & 31;
-				dr = (dr * (255 - a) + (sr >> 3) * a) / 255;
-				dg = (dg * (255 - a) + (sg >> 2) * a) / 255;
-				db = (db * (255 - a) + (sb >> 3) * a) / 255;
-				*d = (uint16_t)(dr << 11 | dg << 5 | db);
-			} else if (f->BytesPerPixel == 4) {
-				uint32_t *d = (uint32_t *)drow + tx;
-				int dr = (*d >> f->Rshift) & 255, dg = (*d >> f->Gshift) & 255, db = (*d >> f->Bshift) & 255;
-				dr = (dr * (255 - a) + sr * a) / 255;
-				dg = (dg * (255 - a) + sg * a) / 255;
-				db = (db * (255 - a) + sb * a) / 255;
-				*d = (*d & ~(f->Rmask | f->Gmask | f->Bmask)) | (uint32_t)dr << f->Rshift | (uint32_t)dg << f->Gshift |
-				     (uint32_t)db << f->Bshift;
+		/* the part of this row that maps onto the opaque run of the source row */
+		int lo = n, hi = -1;
+		if (spans && spans[2 * sy + 1] >= spans[2 * sy]) {
+			int l = spans[2 * sy], r = spans[2 * sy + 1];
+			lo = 0;
+			while (lo < n && xs[lo] < l) lo++;
+			hi = n - 1;
+			while (hi >= lo && xs[hi] > r) hi--;
+		}
+		int run = hi - lo + 1;
+		if (bpp == 4) {
+			uint32_t *d = (uint32_t *)drow + x0;
+			if (run <= 0) {
+				blend_row32(srow, xs, d, n, alpha, rs, gs, bs);
+				continue;
 			}
+			blend_row32(srow, xs, d, lo, alpha, rs, gs, bs);
+			if (alpha == 255 && same_layout && w == s->w) memcpy(d + lo, srow + xs[lo], (size_t)run * 4);
+			else if (alpha == 255) copy_row32(srow, xs + lo, d + lo, run, same_layout);
+			else mix_row32(srow, xs + lo, d + lo, run, alpha, rs, gs, bs);
+			blend_row32(srow, xs + hi + 1, d + hi + 1, n - hi - 1, alpha, rs, gs, bs);
+		} else if (bpp == 2) {
+			uint16_t *d = (uint16_t *)drow + x0;
+			if (run <= 0) {
+				blend_row16(srow, xs, d, n, alpha);
+				continue;
+			}
+			blend_row16(srow, xs, d, lo, alpha);
+			if (alpha == 255) copy_row16(srow, xs + lo, d + lo, run);
+			else blend_row16(srow, xs + lo, d + lo, run, alpha);
+			blend_row16(srow, xs + hi + 1, d + hi + 1, n - hi - 1, alpha);
 		}
 	}
 	SDL_UnlockSurface(target);
 	SDL_UnlockSurface(s);
+}
+
+void gfx_blit_alpha(SDL_Surface *s, int x, int y, uint8_t alpha)
+{
+	gfx_blit_alpha_scaled(s, NULL, x, y, s->w, s->h, alpha);
 }
 
 int gfx_text(TTF_Font *font, const char *text, uint32_t rgb, int x, int y, int align)
@@ -398,7 +618,7 @@ SDL_Surface *gfx_icon_speaker(int size, uint32_t rgb, int waves)
 /* A Mario-style coin: an upright gold oval with a dark rim and an inner ring, grey once spent. */
 static uint32_t coin_sample(float x, float y, float s, int grey)
 {
-	const uint32_t rim = grey ? 0x6E6A62 : 0x7A4A00, body = grey ? 0xCFC8BD : 0xFFC928;
+	const uint32_t rim = grey ? 0x6E6A62 : INK, body = grey ? 0xCFC8BD : 0xFFC928;
 	const uint32_t ring = grey ? 0xA8A196 : 0xD98E00, shine = grey ? 0xE6E1D8 : 0xFFF1A8;
 	float dx = x - s / 2, dy = y - s / 2;
 	float rx = s * 0.36f, ry = s * 0.47f, t = s * 0.06f;
@@ -451,10 +671,8 @@ void gfx_button_hint(int x, int y, const char *letter, uint32_t rgb, const char 
 	const int r = 15, gap = 8;
 	int w = 2 * r + gap + gfx_text_width(font_small, action);
 	int x0 = align == ALIGN_CENTER ? x - w / 2 : align == ALIGN_RIGHT ? x - w : x;
-	SDL_Rect shadow = {x0, y - r + 2, 2 * r, 2 * r};
-	gfx_fill_rounded_alpha(shadow, r, 0x3A2E1A, 50);
 	SDL_Rect disc = {x0, y - r, 2 * r, 2 * r};
-	gfx_fill_rounded(disc, r, rgb);
+	gfx_fill_rounded_border(disc, r, rgb, INK, 3);
 	gfx_text(font_small, letter, 0xFFFFFF, x0 + r, y - TTF_FontHeight(font_small) / 2, ALIGN_CENTER);
-	gfx_text(font_small, action, 0x5A5A5A, x0 + 2 * r + gap, y - TTF_FontHeight(font_small) / 2, ALIGN_LEFT);
+	gfx_text(font_small, action, INK, x0 + 2 * r + gap, y - TTF_FontHeight(font_small) / 2, ALIGN_LEFT);
 }

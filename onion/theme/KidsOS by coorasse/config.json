@@ -1,0 +1,47 @@
+{
+    "name": "KidsOS",
+    "author": "coorasse",
+    "description": "Blocks: toy primaries, ink outlines, hard shadows. Companion theme of KidsOS.",
+    "hideLabels": {
+        "icons": false,
+        "hints": false
+    },
+    "batteryPercentage": {
+        "visible": true,
+        "font": "Fredoka-Bold.ttf",
+        "size": 16,
+        "color": "#2B2B35",
+        "textAlign": "right",
+        "fixed": true,
+        "offsetX": 0,
+        "offsetY": 0
+    },
+    "title": {
+        "font": "Fredoka-Bold.ttf",
+        "size": 34,
+        "color": "#2B2B35"
+    },
+    "hint": {
+        "font": "Fredoka-SemiBold.ttf",
+        "size": 26,
+        "color": "#FFF8EC"
+    },
+    "currentpage": {
+        "color": "#2B2B35"
+    },
+    "total": {
+        "color": "#2B2B35"
+    },
+    "grid": {
+        "font": "Fredoka-Bold.ttf",
+        "grid1x4": 24,
+        "grid3x4": 17,
+        "color": "#B8B0A4",
+        "selectedcolor": "#FFF8EC"
+    },
+    "list": {
+        "font": "Fredoka-SemiBold.ttf",
+        "size": 24,
+        "color": "#FFF8EC"
+    }
+}
