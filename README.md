@@ -16,7 +16,7 @@ work: emulators, save states, Wi-Fi, box art.
   <img src="docs/images/kid-ui.png" width="400" alt="The kids screen">
 </p>
 
-See it in action:
+Check this video on YouTube:
 
 <p align="center">
   <a href="https://youtu.be/9jOx8kLye9k">
@@ -24,7 +24,7 @@ See it in action:
   </a>
 </p>
 
-## What the kid sees
+## What the kids see
 
 A row of big game pictures. Left and right to pick one, **A** to play, **MENU** to stop. That's it. No
 menus, no settings, nothing to read.
@@ -43,11 +43,8 @@ over.
 </p>
 
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
-there. POWER saves too and switches the console off; at the next power on the game is back where it was.
-
-The few words on the kid's screens are in capitals, the letters children learn first, and follow the
-language set in Onion: English, German, Italian, French, Spanish or Dutch. Any other Onion language shows
-English.
+there. 
+POWER saves too and switches the console off; at the next power on the game is back where it was.
 
 ## What the parent gets
 
@@ -87,16 +84,17 @@ things a parent needs: back to the kids screen and the arcade coins.
 KidsOS has no "maximum play time per day" and won't get one.
 
 How long a kid plays is something the kid and the parents agree on. If the console enforces it, the console
-becomes the one who says stop, and the kid argues with a device instead of learning to stop. "One more
-level, then we put it away" is the limit. The console only has to make putting it away easy: MENU saves,
-Continue brings it back.
+becomes the one who says stop, and the kid argues with a device instead of learning to stop. 
+
+"One more level, then we put it away" is the limit. 
+
+The console only has to make putting it away easy: MENU saves, Continue brings it back.
 
 Arcade coins are a different thing. They work like a real arcade: a few coins are the budget, when they're
 gone the game ends. The kid can still play something else.
 
-> KidsOS only writes to the SD card, never to the console itself. The one exception is the Wi-Fi network you
-> give the installer, which Onion keeps on the console like its own Wi-Fi settings. If something goes wrong,
-> see [Troubleshooting](#troubleshooting).
+The better they get, the longer they can play.
+
 
 ## Installation
 
@@ -107,8 +105,7 @@ You need:
   unreliable.
 - A computer with a card reader.
 - Game files (ROMs) for the systems you want.
-
-It takes about ten minutes, most of it waiting.
+- Ten minutes
 
 ### 1. Put KidsOS on the card
 
@@ -121,7 +118,7 @@ curl -fsSL https://raw.githubusercontent.com/coorasse/onionKidsOS/main/install.s
 
 The installer asks a few questions and does the rest:
 
-1. It finds the card and shows it to you. With more than one card in the computer, you pick the one.
+1. It finds the card and shows it to you. If you have more than one card in the computer, you choose which one.
 2. A new card gets erased, so you type the card's name to go on. Nothing is erased before that. A card that
    already has KidsOS or Onion can be updated instead, see [Updating](#updating).
 3. It asks the language of the console and your Wi-Fi network. With Wi-Fi the console finds a picture for
@@ -288,11 +285,10 @@ arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder). Plain
 
 ## How it works
 
-Onion lives on the SD card, the console's own firmware only starts it. KidsOS adds a small launcher to
-Onion's package and a boot hook that puts it in front of Onion's menu. Onion's own scripts aren't changed,
-so Onion keeps working as documented and copying a new KidsOS zip onto the card always brings the kids
-screen back. Build instructions and the development setup are in
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+KidsOS adds a small launcher to Onion's package and a boot hook that puts it in front of Onion's menu. 
+Onion's own scripts aren't changed, so Onion keeps working as documented and copying a new KidsOS zip onto the card always brings the kids screen back. 
+
+Build instructions and the development setup are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 KidsOS is free software under the [GPL-3.0](LICENSE), like Onion. It has nothing to do with Miyoo or the
 Onion team.
