@@ -43,7 +43,7 @@ over.
 </p>
 
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
-there. 
+there.
 POWER saves too and switches the console off; at the next power on the game is back where it was.
 
 ## What the parent gets
@@ -84,9 +84,9 @@ things a parent needs: back to the kids screen and the arcade coins.
 KidsOS has no "maximum play time per day" and won't get one.
 
 How long a kid plays is something the kid and the parents agree on. If the console enforces it, the console
-becomes the one who says stop, and the kid argues with a device instead of learning to stop. 
+becomes the one who says stop, and the kid argues with a device instead of learning to stop.
 
-"One more level, then we put it away" is the limit. 
+"One more level, then we put it away" is the limit.
 
 The console only has to make putting it away easy: MENU saves, Continue brings it back.
 
@@ -285,8 +285,10 @@ arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder). Plain
 
 ## How it works
 
-KidsOS adds a small launcher to Onion's package and a boot hook that puts it in front of Onion's menu. 
-Onion's own scripts aren't changed, so Onion keeps working as documented and copying a new KidsOS zip onto the card always brings the kids screen back. 
+KidsOS adds a small launcher to Onion's package and a boot hook that puts it in front of Onion's menu.
+Onion's own scripts stay as they are, except that its installer skips the guide and the Package Manager at
+the first start. Onion keeps working as documented, and copying a new KidsOS zip onto the card always brings
+the kids screen back.
 
 Build instructions and the development setup are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
