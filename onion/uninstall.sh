@@ -21,6 +21,9 @@ if [ -f "$CONFIG/.disableStandby.kidsos" ]; then
 	rm -f "$CONFIG/.disableStandby" "$CONFIG/.disableStandby.kidsos" && echo "POWER back to standby"
 	touch /tmp/settings_changed
 fi
+if [ -f "$CONFIG/.sshState.kidsos" ]; then
+	rm -f "$CONFIG/.sshState" "$CONFIG/.sshState_" "$CONFIG/.sshState.kidsos" && echo "SSH back to Onion's default"
+fi
 mw=$CONFIG/display/meterWidth
 if [ -f "$mw.kidsos-orig" ]; then
 	mv "$mw.kidsos-orig" "$mw"

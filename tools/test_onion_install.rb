@@ -236,6 +236,14 @@ if DIST_ZIP
   puts "== first boot from the zip's onion.pak (#{File.basename(DIST_ZIP)})"
   check "startup hook is in the pak", File.exist?("#{SYSDIR}/startup/kidsos.sh")
   check "launcher is in the pak", File.exist?("#{SD}/.kidsos/install.sh") && File.exist?("#{SD}/.kidsos/version.txt")
+check "kids boot screen in the pak, so the first boot already shows it",
+      (File.read(BOOT_OVERRIDE) == File.read("#{ROOT}/onion/bootScreen.png") rescue false)
+  %w[GB GBC GBA FC SFC NEOGEO].each do |tag|
+    package = Dir.glob("#{SD}/App/PackageManager/data/Emu/*/Emu/#{tag}").first
+    check "#{tag} emulator preinstalled as the Package Manager would install it",
+          package && Dir.exist?("#{SD}/Roms/#{tag}") &&
+            Dir.children(package).all? { |f| FileUtils.identical?("#{package}/#{f}", "#{SD}/Emu/#{tag}/#{f}") }
+  end
   ok, out = in_container(<<~SH)
     timeout 120 sh ./runtime.sh
     echo "runtime.sh exited with $?" >> /mnt/SDCARD/test.log
@@ -296,6 +304,10 @@ check "RetroArch auto save state enforced",
 check "POWER tap set to save and shutdown (Onion's .disableStandby flag, marked as ours)",
       File.exist?("#{SYSDIR}/config/.disableStandby") && File.exist?("#{SYSDIR}/config/.disableStandby.kidsos") &&
       install_out.include?("POWER set to save and shutdown"), install_out
+check "SSH flag set and marked as ours, dropbear not started while Wi-Fi is off",
+      File.exist?("#{SYSDIR}/config/.sshState") && File.exist?("#{SYSDIR}/config/.sshState.kidsos") &&
+        install_out.include?("SSH on") && !install_out.include?("SSH started") &&
+        events.none? { |l| l.start_with?("update_networking ssh") }, install_out
 
 puts "== next boot: the startup hook changes nothing"
 ok, out = in_container("sh startup/kidsos.sh")
@@ -306,6 +318,16 @@ check "keymap left alone", second.include?("keymap already set"), second
 check "theme left alone", second.include?("KidsOS theme already installed") && !second.include?("set as default"), second
 check "RetroArch config left alone", second.include?("thumbnails already enabled") && events.count { |l| l == "patch_ra_cfg /tmp/kidsos_ra.cfg" } == 1, second
 check "power button left alone", second.include?("POWER already set to shutdown"), second
+check "SSH left alone", second.include?("SSH already on"), second
+ok, out = in_container(<<~SH)
+  mv config/.sshState config/.sshState_
+  sed -i 's/\*) echo 0/wifi) echo 1 ;; *) echo 0/' /customer/app/jsonval
+  sh /mnt/SDCARD/.kidsos/install.sh
+  sleep 1
+SH
+check "SSH flag put back after Onion moved it aside, dropbear started because Wi-Fi is on",
+      out.include?("SSH on") && out.include?("SSH started") && File.exist?("#{SYSDIR}/config/.sshState") &&
+        !File.exist?("#{SYSDIR}/config/.sshState_") && events.any? { |l| l == "update_networking ssh toggle" }, out
 ok, out = in_container("rm -f config/theme-set /tmp/settings_changed && sh /mnt/SDCARD/.kidsos/install.sh > /dev/null && test -f /tmp/settings_changed && echo reload")
 check "keymon is told to reload system.json after the theme is set", ok && out.include?("reload"), out
 
@@ -368,6 +390,8 @@ check "uninstall.sh ran", out.include?("uninstalled"), out
 check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails back to default"), out
 check "uninstall.sh puts POWER back to standby", out.include?("POWER back to standby") &&
       !File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
+check "uninstall.sh removes the SSH flag it set", out.include?("SSH back to Onion's default") &&
+      !File.exist?("#{SYSDIR}/config/.sshState") && !File.exist?("#{SYSDIR}/config/.sshState.kidsos"), out
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out
 check "uninstall.sh removes the KidsOS app", out.include?("KidsOS app removed") && !File.exist?("#{SD}/App/KidsOS"), out
 check "uninstall.sh removes the boot screen override", out.include?("boot screen restored") && !File.exist?(BOOT_OVERRIDE), out
@@ -381,7 +405,7 @@ check "no .real left behind", Dir.glob("#{SYSDIR}/bin/*.real").empty?
 check "keymap restored", (File.read(KEYMAP) == ORIGINAL_KEYMAP rescue false) && !File.exist?("#{KEYMAP}.kidsos-orig")
 check ".kidsos removed", !File.exist?("#{SD}/.kidsos")
 
-puts "== install without a keymap.json, POWER already set to shutdown by the parent + uninstall"
+puts "== install without a keymap.json, POWER already set to shutdown by the parent, ssh=0 + uninstall"
 # keep the boot scenario logs around for debugging
 FileUtils.mkdir_p("#{ROOT}/build/onion-test-logs")
 FileUtils.cp("#{SD}/test.log", "#{ROOT}/build/onion-test-logs/boot-test.log") rescue nil
@@ -389,6 +413,8 @@ FileUtils.cp("#{SYSDIR}/logs/runtime.log", "#{ROOT}/build/onion-test-logs/boot-r
 build_sd_card
 FileUtils.rm_f(KEYMAP)
 FileUtils.touch("#{SYSDIR}/config/.disableStandby")
+FileUtils.mkdir_p("#{SD}/kids")
+File.write("#{SD}/kids/settings.txt", "arcade_coins_per_day=10\nssh=0\n")
 ok, out = in_container(<<~SH)
   sh /mnt/SDCARD/.kidsos/install.sh || exit 1
   cp /mnt/SDCARD/.tmp_update/config/keymap.json /mnt/SDCARD/keymap-installed.json
@@ -400,6 +426,8 @@ check "keymap written with Onion's MainUI defaults", expected.all? { |s| install
 check "keymap removed again", !File.exist?(KEYMAP) && !File.exist?("#{KEYMAP}.kidsos-none")
 check "the parent's POWER setting is kept", out.include?("POWER already set to shutdown") &&
       File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
+check "ssh=0 in kids/settings.txt leaves SSH to Onion", out.include?("SSH left to Onion (ssh=0)") &&
+      !File.exist?("#{SYSDIR}/config/.sshState") && !File.exist?("#{SYSDIR}/config/.sshState.kidsos"), out
 
 if $failures.empty?
   puts "\nall checks passed"

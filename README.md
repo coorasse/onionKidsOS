@@ -16,6 +16,14 @@ work: emulators, save states, Wi-Fi, box art.
   <img src="docs/images/kid-ui.png" width="400" alt="The kids screen">
 </p>
 
+See it in action:
+
+<p align="center">
+  <a href="https://youtu.be/9jOx8kLye9k">
+    <img src="https://img.youtube.com/vi/9jOx8kLye9k/maxresdefault.jpg" width="480" alt="KidsOS demo video on YouTube">
+  </a>
+</p>
+
 ## What the kid sees
 
 A row of big game pictures. Left and right to pick one, **A** to play, **MENU** to stop. That's it. No
@@ -96,7 +104,7 @@ You need:
 - A computer with a card reader.
 - Game files (ROMs) for the systems you want.
 
-It takes about fifteen minutes, most of it waiting.
+It takes about ten minutes, most of it waiting.
 
 ### 1. Format the card as FAT32
 
@@ -109,25 +117,27 @@ It takes about fifteen minutes, most of it waiting.
 
 1. Download the latest `KidsOS-x.y.z.zip` from the
    [releases page](https://github.com/coorasse/onionKidsOS/releases).
-2. Unzip it. You get seven folders and two small text files.
+2. Unzip it. You get seven folders and three files.
 3. Copy **all of it** to the root of the card. One folder, `.tmp_update`, is hidden. On a Mac press
    `Cmd + Shift + .` in the Finder to show hidden files, on Windows turn on *Hidden items* in the *View*
    menu. Without that folder nothing happens.
 
 ### 3. First start
 
-1. Put the card in the console and turn it on. Onion installs itself. This takes a few minutes.
+1. Put the card in the console and turn it on. Onion installs itself. This takes about two minutes.
 2. A short guide to Onion appears. Go through it with **A**.
-3. The *Package Manager* appears with a list of systems. Press **A** on the ones you have games for (for
-   example *Game Boy*, *SNES*, *PlayStation*), then press **START** twice.
+3. The *Package Manager* appears with a list of systems. Game Boy, Game Boy Color, Game Boy Advance, NES,
+   SNES, Nintendo DS and Neo Geo are already ticked. Press **A** on any other system you have games for (for example
+   *PlayStation*), then press **START** twice. If you added nothing, confirm with **A**.
 4. The console reboots into the kids screen. It's empty, because no games are chosen yet.
 
 ### 4. Add games
 
 1. Turn the console off and put the card back in the computer.
 2. Copy your game files into `Roms/<SYSTEM>/`. The folder names are short codes: `GB` (Game Boy), `GBC`
-   (Game Boy Color), `GBA` (Game Boy Advance), `FC` (NES), `SFC` (SNES), `PS` (PlayStation). The full list
-   is in [Onion's docs](https://onionui.github.io/docs/emulators/folders).
+   (Game Boy Color), `GBA` (Game Boy Advance), `FC` (NES), `SFC` (SNES), `NDS` (Nintendo DS), `PS`
+   (PlayStation), `FBNEO` (arcade). The full list is in
+   [Onion's docs](https://onionui.github.io/docs/emulators/folders).
 3. Put the card back and turn the console on.
 4. Hold **SELECT + START** for three seconds. Onion's menu appears and stays until you turn the console
    off, or until you open **KidsOS** in the *Apps* tab and pick *Back to the kids screen*.
@@ -178,6 +188,8 @@ KidsOS starts and looks like this:
 arcade_coins_per_day=10
 # Systems whose games use coins, by folder tag.
 arcade_systems=ARCADE,CPS1,CPS2,CPS3,NEOGEO,FBN,FBNEO,MAME
+# SSH into the console over Wi-Fi (root, no password, like Onion). 0 turns it off.
+ssh=1
 ```
 
 `arcade_coins_per_day=0` turns coins off: no counter, SELECT always works. The second line is the list of
@@ -190,6 +202,11 @@ change brightness, theme music, Wi-Fi and so on in *Apps* › *Tweaks*, like on 
 
 Onion's own menu comes in the KidsOS colours too: the *KidsOS by coorasse* theme is installed with the
 launcher and switched on the first time. Any other theme picked in Onion's *Themes* app stays.
+
+SSH is on whenever Wi-Fi is on, so the card can be reached from a computer with `ssh root@<ip>` (no password,
+as on plain Onion; the IP is shown under *Tweaks* › *Network*). Anyone on your Wi-Fi can do the same, so on a
+network you don't trust set `ssh=0` in `kids/settings.txt`. Switching SSH off in *Tweaks* only lasts until
+the next power on.
 
 ## Updating
 
@@ -204,10 +221,14 @@ Copying a KidsOS zip onto the card brings it back.
 Download [Onion](https://github.com/OnionUI/Onion/releases), copy its folders onto the card the same way,
 and delete the hidden folder `.kidsos`. Games and saves stay.
 
+KidsOS leaves out the parts of Onion that aren't for kids and would make the first start much longer: ScummVM,
+the video player, Samba file sharing, the Ports collection, PICO-8, Amiga, EasyRPG, AdvanceMAME and the MAME
+arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder). Plain Onion has all of them again.
+
 ## Troubleshooting
 
-- **Onion's boot picture instead of the KidsOS one.** Harmless, the kids screen still comes up. Copying the
-  KidsOS zip onto the card again fixes it.
+- **Onion's boot picture instead of the KidsOS one.** Harmless, the kids screen still comes up. Onion's *Reset
+  theme overrides* does this; the next power on puts the KidsOS picture back.
 - **Black screen, nothing reacts.** Hold **POWER** until the console is off, then turn it on again.
 - **The kids screen is empty.** No favourites yet, see [Add games](#4-add-games).
 - **The console starts into Onion's menu.** Copy the KidsOS zip onto the card again, see

@@ -185,6 +185,12 @@ every process; the launcher exits cleanly on it and `launch.sh` traps it so its 
 next power on Onion relaunches the saved game itself (`cmd_to_run.sh` survives the shutdown) with the
 state loaded; holding MENU during boot skips that and lands on the kid row.
 
+SSH is on by default. Onion keeps it as the flag `.tmp_update/config/.sshState`, which its network check moves
+aside at every boot with Wi-Fi off, and that check runs before the startup hooks. `install.sh` therefore puts
+the flag back on every boot (unless `kids/settings.txt` has `ssh=0`) and, with Wi-Fi already on, starts
+dropbear through `update_networking.sh ssh toggle`, because Onion's own check ran too early to see the flag.
+`.sshState.kidsos` marks the flag as ours for `uninstall.sh`.
+
 Arcade coins: `game.sh` wraps arcade launches. It starts `coinmon.elf`, which counts SELECT presses on
 `/dev/input/event0` and keeps `kids/coins.txt` up to date, and it adds `libcoinlock.so` to `LD_PRELOAD` next
 to Onion's `libpadsp.so`. Onion's RetroArch links Onion's `libSDL-1.2` dynamically and its `sdl_dingux`
@@ -250,7 +256,29 @@ unpacks over the card at the first boot and at every update. The layer is `.kids
 `make deploy` sends) plus `.tmp_update/startup/kidsos.sh`, a hook Onion runs at every boot
 (`runtime.sh`, "startup scripts"): it calls `.kidsos/install.sh`, which is idempotent, so the shims are
 installed at the first boot and come back by themselves after an Onion update wiped `.tmp_update/bin`.
-Onion's own scripts and its installer are not modified; only files are added to an archive.
+Onion's own scripts and its installer are not modified; files are added to an archive and some are left out.
+
+Both of Onion's packages, `onion.pak` and `RetroArch/retroarch.pak`, are unpacked, trimmed and repacked by
+`make dist`, because the first boot is the installer unpacking almost a gigabyte onto the card with the Miyoo's
+own `7z`. Measured on the device on a 33 MB slice: Onion's LZMA2 level extracts in 11.7 s, fast LZMA2 (`-mx=1`)
+in 6.7 s, no compression in 7.8 s (reading more from the card costs more than the fast decode); the card writes
+at about 6 MB/s and the stock firmware mounts it with `dirsync`, so every file costs about 5 ms on top. Fast
+LZMA2 makes the paks about a quarter bigger and the first boot about twice as fast. The trimming (`DROPPED` in
+`tools/build_dist.rb`) removes what no kid uses and what is heaviest: ScummVM (standalone, libretro core and
+BIOS data), AdvanceMAME and AdvanceMENU, the MAME 2003-Plus, 2003-xtreme and 2000 arcade builds, the video player
+with its ffmpeg libraries, Samba, the PlayStation standalone (the RetroArch core stays), PICO-8, Amiga, EasyRPG,
+Mr.Boom, the Ports collection and Onion's Python. Arcade stays on Final Burn Neo (`FBNEO`), the core the arcade
+coins are made for. Every dropped path must exist, so a new Onion release that moved something makes the build
+stop. The 128 MB swap file Onion would `dd` at its first boot (`cachefile`, half a minute) ships in the zip
+instead, made with `mkswap` in an Alpine container; zipped it is a few hundred KB.
+
+The layer also carries seven emulators (Game Boy, Game Boy Color, GBA, NES, SNES, DS, Neo Geo): their packages are
+copied out of `App/PackageManager/data/Emu` of the same pak into `Emu/<TAG>` and `Roms/<TAG>`, which is exactly
+what the Package Manager copies when a system is ticked, so Onion lists them as installed at the first boot and
+refreshes them on updates like any other package. A system the parent removes in the Package Manager comes back
+with the next KidsOS zip. The list is `PREINSTALLED_EMUS` in `tools/build_dist.rb`. The kids boot picture is in
+the pak too, at the theme override path `install.sh` uses, because Onion shows the boot picture before it runs
+the startup hooks and the first boot would otherwise show Onion's.
 
 Why not a fork of Onion: MainUI is a closed Miyoo binary that Onion patches in hex, so a fork could not
 change the UI either, it would have to replace it exactly like the shims do; Onion's build is 2 GB of blobs
