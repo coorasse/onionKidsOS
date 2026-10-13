@@ -19,6 +19,8 @@ jobs:
         run: make dist KIDSOS_VERSION="${GITHUB_REF_NAME#v}"
       - name: Boot the zip's onion.pak in BusyBox
         run: make test-dist KIDSOS_VERSION="${GITHUB_REF_NAME#v}"
+      - name: Install the zip on a fake fresh card without pressing anything
+        run: make test-first-install KIDSOS_VERSION="${GITHUB_REF_NAME#v}"
       - uses: softprops/action-gh-release@v2
         with:
           files: build/KidsOS-*.zip

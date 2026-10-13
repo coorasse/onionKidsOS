@@ -8,11 +8,11 @@
 #define SCREEN_H 480
 
 #if defined(PLATFORM_ONION)
-#define HOST_SYSTEM_NAME "Onion"
+#define HOST_SYSTEM_NAME "ONION"
 #elif defined(PLATFORM_MIYOOMINI)
-#define HOST_SYSTEM_NAME "MinUI"
+#define HOST_SYSTEM_NAME "MINUI"
 #else
-#define HOST_SYSTEM_NAME "desktop"
+#define HOST_SYSTEM_NAME "DESKTOP"
 #endif
 
 enum {

@@ -96,6 +96,55 @@ def drop(dir, patterns)
   puts "   #{dir}: #{saved / 1024 / 1024} MB dropped"
 end
 
+# A fresh install shows Onion's guide and then the Package Manager, which waits for the parent to pick
+# systems. KidsOS already carries its emulators, so the installer skips both and finishes on its own; the
+# Package Manager stays in Apps. Updates keep running it with --auto_update, which shows nothing.
+INSTALL_SH = File.join(WORK, "card/miyoo/app/.tmp_update/install.sh")
+WIZARDS = <<-SH
+        # Show quick guide
+        if [ $reset_configs -eq 1 ]; then
+            cd /mnt/SDCARD/App/Onion_Manual/
+            ./launch.sh
+        fi
+
+        # Launch package manager
+        cd /mnt/SDCARD/App/PackageManager/
+        if [ $reset_configs -eq 1 ]; then
+            packageManager --confirm
+        else
+            packageManager --confirm --auto_update
+        fi
+SH
+NO_WIZARDS = <<-SH
+        # KidsOS: no guide and no Package Manager on a fresh install
+        cd /mnt/SDCARD/App/PackageManager/
+        if [ $reset_configs -eq 0 ]; then
+            packageManager --confirm --auto_update
+        fi
+SH
+
+step "skipping Onion's first-boot guide and Package Manager"
+installer = File.read(INSTALL_SH)
+unless installer.scan(WIZARDS).size == 1
+  abort "Onion's install.sh changed: the guide and Package Manager block is not there once"
+end
+installer = installer.sub(WIZARDS) { NO_WIZARDS }
+# the progress line on the install screen ("1/2: Installing Onion... 45%")
+unless installer.scan('$verb Onion...').size == 2
+  abort "Onion's install.sh changed: the progress text is not there twice"
+end
+File.write(INSTALL_SH, installer.gsub('$verb Onion...', '$verb KidsOS...'))
+system("sh", "-n", INSTALL_SH) || abort("patched install.sh has a syntax error")
+
+# The install screen is Onion's background with a slideshow of Onion tips on top. KidsOS shows its own picture
+# instead and no slides: installUI falls back to the background when there are none. Onion writes the progress
+# text in white at the bottom, hence the dark band in the picture.
+INSTALL_RES = File.join(WORK, "card/miyoo/app/.tmp_update/res")
+slides = Dir.glob(File.join(INSTALL_RES, "installSlide*.png"))
+abort "Onion's install slides are gone: check the install screen" if slides.empty?
+FileUtils.rm(slides)
+FileUtils.cp(File.join(ROOT, "onion/installScreen.png"), File.join(INSTALL_RES, "waitingBG.png"))
+
 step "unpacking onion.pak and retroarch.pak"
 SevenZip.extract(WORK, PAK, "pak")
 SevenZip.extract(WORK, RA_PAK, "ra")

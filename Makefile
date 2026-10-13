@@ -105,7 +105,7 @@ pak: miyoomini
 	rm -rf build/pak && mkdir -p $(PAK_DIR)/res
 	cp build/miyoomini/kidsos.elf $(PAK_DIR)/
 	cp pak/launch.sh $(PAK_DIR)/
-	cp assets/Fredoka-Bold.ttf $(PAK_DIR)/res/
+	cp assets/Fredoka-Bold.ttf assets/logo.png $(PAK_DIR)/res/
 	cd build/pak && rm -f ../KidsOS-miyoomini.zip && zip -qr ../KidsOS-miyoomini.zip Tools
 	@echo "Copy build/pak/Tools onto the SD card root (or unzip build/KidsOS-miyoomini.zip there)."
 
@@ -125,7 +125,7 @@ DIST = build/onion/dist/.kidsos
 onion-dist: onion
 	rm -rf build/onion/dist && mkdir -p $(DIST)/res
 	cp build/onion/kidsos.elf build/onion/coinmon.elf build/onion/libcoinlock.so onion/launch.sh onion/game.sh onion/covers.sh onion/startup.sh onion/install.sh onion/uninstall.sh $(DIST)/
-	cp assets/Fredoka-Bold.ttf $(DIST)/res/
+	cp assets/Fredoka-Bold.ttf assets/logo.png $(DIST)/res/
 	cp -R onion/app $(DIST)/app
 	cp -R onion/theme $(DIST)/theme
 	cp onion/bootScreen.png $(DIST)/
@@ -142,6 +142,10 @@ dist: onion-dist
 # boots the runtime.sh from the zip's onion.pak in BusyBox: the startup hook must install the shims by itself
 test-dist: ../reference/Onion
 	ruby tools/test_onion_install.rb ../reference/Onion --dist $(KIDSOS_ZIP)
+
+# plays Onion's installer from the zip on a fresh card: no screen may wait for a button before the reboot
+test-first-install:
+	ruby tools/test_first_install.rb $(KIDSOS_ZIP)
 
 # Over Wi-Fi: enable SSH in Onion (Apps > Tweaks > Network), then: make deploy MIYOO=<device ip>
 MIYOO ?=
@@ -218,4 +222,4 @@ device-shots:
 clean:
 	rm -rf build shots/*.png shots/onion
 
-.PHONY: run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean
+.PHONY: test-first-install run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean

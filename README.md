@@ -128,12 +128,12 @@ It takes about ten minutes, most of it waiting.
 
 ### 3. First start
 
-1. Put the card in the console and turn it on. Onion installs itself. This takes about two minutes.
-2. A short guide to Onion appears. Go through it with **A**.
-3. The *Package Manager* appears with a list of systems. Game Boy, Game Boy Color, Game Boy Advance, NES,
-   SNES, Nintendo DS and Neo Geo are already ticked. Press **A** on any other system you have games for (for example
-   *PlayStation*), then press **START** twice. If you added nothing, confirm with **A**.
-4. The console reboots into the kids screen. It's empty, because no games are chosen yet.
+1. Put the card in the console and turn it on. KidsOS installs itself in about two minutes. There is nothing
+   to press.
+2. The console reboots into the kids screen. It's empty, because no games are chosen yet.
+
+Game Boy, Game Boy Color, Game Boy Advance, NES, SNES, Nintendo DS and Neo Geo are ready out of the box. For
+other systems (for example *PlayStation*) open *Apps* › *Package Manager* in Onion's menu later.
 
 ### 4. Add games
 

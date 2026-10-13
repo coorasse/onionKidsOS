@@ -5,6 +5,14 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The first start needs no button press: Onion's guide and Package Manager are skipped and the console
+  installs and reboots into the kids screen by itself. The Package Manager is still in Onion's Apps.
+- The install screen shows the KidsOS picture instead of Onion's background and tips, and says
+  "Installing KidsOS".
+- The kids screen shows the KidsOS logo while no games are chosen yet.
+
 ## [0.1.1] - 2026-10-13
 
 ### Added

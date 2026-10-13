@@ -289,6 +289,21 @@ static void draw_dots(void)
 	}
 }
 
+/* the logo travels next to the font: res/ on the device, assets/ on the desktop */
+static SDL_Surface *logo(void)
+{
+	static SDL_Surface *img;
+	static int tried;
+	if (tried) return img;
+	tried = 1;
+	char path[512];
+	snprintf(path, sizeof(path), "%s", PLAT_font_path());
+	char *slash = strrchr(path, '/');
+	snprintf(slash ? slash + 1 : path, sizeof(path) - (slash ? (size_t)(slash + 1 - path) : 0), "logo.png");
+	img = gfx_load_image(path);
+	return img;
+}
+
 void kid_ui_render(void)
 {
 	gfx_blit(gfx_paper(), 0, 0);
@@ -296,9 +311,11 @@ void kid_ui_render(void)
 	if (!count) {
 		char mark[160];
 		snprintf(mark, sizeof(mark), T(STR_NO_GAMES_MARK), HOST_SYSTEM_NAME);
-		gfx_text_fit(font_big, T(STR_NO_GAMES), INK, 320, 190, ALIGN_CENTER, 600);
-		gfx_text_fit(font_med, mark, 0x55555F, 320, 240, ALIGN_CENTER, 600);
-		gfx_text_fit(font_med, T(STR_NO_GAMES_HOLD), 0x55555F, 320, 275, ALIGN_CENTER, 600);
+		SDL_Surface *l = logo();
+		if (l) gfx_blit(l, 320 - l->w / 2, 95);
+		gfx_text_fit(font_big, T(STR_NO_GAMES), INK, 320, 245, ALIGN_CENTER, 600);
+		gfx_text_fit(font_med, mark, 0x55555F, 320, 295, ALIGN_CENTER, 600);
+		gfx_text_fit(font_med, T(STR_NO_GAMES_HOLD), 0x55555F, 320, 330, ALIGN_CENTER, 600);
 		draw_hold_progress();
 		return;
 	}

@@ -40,6 +40,7 @@ pak/                   MinUI pak launch script
 sdcard/, sdcard-onion/ fake SD cards for development (empty roms + generated placeholder art)
 tools/build_dist.rb    builds the KidsOS zip from the official Onion release (make dist)
 tools/test_onion_install.rb  boots Onion's runtime.sh in Docker against a fake card (make test-onion, make test-dist)
+tools/test_first_install.rb  plays Onion's installer from the zip on a fresh card (make test-first-install)
 tools/test_covers.rb   runs covers.sh in Docker against a fake card and a fake thumbnail server (make test-covers)
 tools/sevenzip.rb      7z for the two scripts above (local binary or Alpine container)
 tools/make_covers.py   regenerates the fake SD cards
@@ -282,6 +283,17 @@ with the next KidsOS zip. The list is `PREINSTALLED_EMUS` in `tools/build_dist.r
 the pak too, at the theme override path `install.sh` uses, because Onion shows the boot picture before it runs
 the startup hooks and the first boot would otherwise show Onion's.
 
+The first start needs nobody at the console. On a fresh card Onion's installer (`miyoo/app/.tmp_update/install.sh`
+in the zip root, outside the pak) shows its guide and then the Package Manager, which waits for a confirmation.
+`tools/build_dist.rb` takes both out of the fresh-install branch (updates keep running the Package Manager with
+`--auto_update`, which shows nothing) and stops if Onion changed that block. The install screen is
+`onion/installScreen.png` instead of Onion's `waitingBG.png`, and Onion's tip slides are removed, so installUI shows
+only the KidsOS picture; the progress line says "Installing KidsOS..." instead of "Installing Onion...". Its bottom
+is dark because installUI writes the status text in white there and draws the progress bar along the bottom edge;
+the font (Exo, from the firmware) and the bar colour are built into installUI. `make test-first-install` runs the
+stock firmware's entry point from the zip in an Alpine container, with the real paks unpacked by 7z and the screen
+binaries stubbed: nothing may wait for a button and the installer must reboot by itself.
+
 Why not a fork of Onion: MainUI is a closed Miyoo binary that Onion patches in hex, so a fork could not
 change the UI either, it would have to replace it exactly like the shims do; Onion's build is 2 GB of blobs
 plus a RetroArch compile, and its last stable release is from June 2024. Rebasing on a new Onion release is
@@ -299,8 +311,8 @@ Onion update (the installer stub's wipe of `.tmp_update` except `config/` and `o
 2. Commit, tag `vX.Y.Z` and push the tag (or let GitHub create the tag in the next step).
 3. Draft a new release on GitHub for that tag, paste the changelog entry, publish it.
 
-`.github/workflows/release.yml` runs `make dist` and `make test-dist` when a release is published and attaches
-the zip to it; it takes a few minutes, and a draft builds nothing until it is published.
+`.github/workflows/release.yml` runs `make dist`, `make test-dist` and `make test-first-install` when a release is
+published and attaches the zip to it; it takes a few minutes, and a draft builds nothing until it is published.
 
 Not touched on an Onion update (verified in Onion's `install.sh`): `Roms/` with `favourite.json`,
 `Saves/` (where the kids boot screen lives as a theme override), `.tmp_update/config/` (so the kids keymap and
