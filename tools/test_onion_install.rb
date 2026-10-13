@@ -195,7 +195,9 @@ def build_sd_card
 end
 
 def in_container(script)
+  # the container runs as root; on Linux the files it leaves on the card would be unwritable for this script
   cmd = ["docker", "run", "--rm", "-v", "#{SD}:/mnt/SDCARD", "-v", "#{STUBS}:/stubs:ro", IMAGE, "sh", "-c", <<~SH]
+    trap 'chown -R #{Process.uid}:#{Process.gid} /mnt/SDCARD' EXIT
     mkdir -p /appconfigs /customer/app /customer/lib
     cp /stubs/jsonval /customer/app/jsonval
     export PATH=/stubs:$PATH
