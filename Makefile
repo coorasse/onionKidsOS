@@ -131,7 +131,7 @@ onion-dist: onion
 	cp onion/bootScreen.png $(DIST)/
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
-KIDSOS_VERSION = 0.1.1
+KIDSOS_VERSION = 0.1.2
 ONION_VERSION = 4.3.1-1
 ONION_SHA256 = 4739938e45688ade02d2c8947d4012345916d1ca04ab33f5b2b1949bf8e66166
 KIDSOS_ZIP = build/KidsOS-$(KIDSOS_VERSION).zip
