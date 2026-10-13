@@ -25,6 +25,8 @@ if [ ! -f "$settings" ]; then
 arcade_coins_per_day=10
 # Systems whose games use coins, by folder tag.
 arcade_systems=ARCADE,CPS1,CPS2,CPS3,NEOGEO,FBN,FBNEO,MAME
+# SSH into the console over Wi-Fi (root, no password, like Onion). 0 turns it off.
+ssh=1
 EOS
 fi
 

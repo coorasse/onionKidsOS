@@ -24,6 +24,8 @@ static void write_default_settings(const char *path)
 	fprintf(f, "arcade_coins_per_day=%d\n", per_day);
 	fprintf(f, "# Systems whose games use coins, by folder tag.\n");
 	fprintf(f, "arcade_systems=%s\n", arcade_tags);
+	fprintf(f, "# SSH into the console over Wi-Fi (root, no password, like Onion). 0 turns it off.\n");
+	fprintf(f, "ssh=1\n");
 	fclose(f);
 }
 

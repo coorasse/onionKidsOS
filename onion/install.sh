@@ -193,6 +193,31 @@ write_power_button() {
 	echo "POWER set to save and shutdown"
 }
 
+# SSH is Onion's dropbear, root without a password as Onion ships it, switched by the flag .sshState. Onion's
+# network check moves the flag aside at every boot with Wi-Fi off and runs before the startup hooks, so the
+# flag is put back on every boot: SSH then comes up as soon as Wi-Fi is on. With Wi-Fi already on the service
+# is started right away, Onion's check having run too early to see the flag. ssh=0 in kids/settings.txt leaves
+# SSH to Onion's Tweaks.
+write_ssh() {
+	flag="$CONFIG/.sshState"
+	if grep -q '^ssh=0' /mnt/SDCARD/kids/settings.txt 2> /dev/null; then
+		echo "SSH left to Onion (ssh=0)"
+		return 0
+	fi
+	if [ -f "$flag" ]; then
+		echo "SSH already on"
+		return 0
+	fi
+	touch "$flag" "$flag.kidsos" || fail "cannot set the SSH flag"
+	rm -f "${flag}_"
+	echo "SSH on"
+	net="$SYS/script/network/update_networking.sh"
+	if [ "$(/customer/app/jsonval wifi 2> /dev/null)" = "1" ] && [ -f "$net" ]; then
+		sh "$net" ssh toggle > /dev/null 2>&1 &
+		echo "SSH started"
+	fi
+}
+
 [ -f "$RT" ] || fail "runtime.sh not found, is this Onion?"
 chmod +x "$KIDS/launch.sh" "$KIDS/game.sh" "$KIDS/covers.sh" "$KIDS/startup.sh" "$KIDS/kidsos.elf" "$KIDS/coinmon.elf"
 
@@ -224,6 +249,7 @@ write_theme
 write_boot_screen
 write_retroarch_cfg
 write_power_button
+write_ssh
 # Onion bind-mounts the MainUI binary once per boot; drop the mount so the shim is picked up without a reboot
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null
 sync

@@ -23,7 +23,8 @@ module SevenZip
 
   def list(root, archive) = run(root, "l", "-ba", "-slt", archive).scan(/^Path = (.*)$/).flatten
 
-  def add(root, archive, *paths, cwd: ".") = run(root, "a", "-mtm=off", "-bso0", "-bsp0", archive, *paths, cwd: cwd)
+  # a new solid archive with fast LZMA2: the Miyoo unpacks it almost twice as fast as Onion's default level
+  def create(root, archive, *paths, cwd: ".") = run(root, "a", "-m0=lzma2", "-mx=1", "-bso0", "-bsp0", archive, *paths, cwd: cwd)
 
-  def extract(root, archive, dest) = run(root, "x", "-aoa", "-bso0", "-bsp0", "-o#{dest}", archive)
+  def extract(root, archive, dest, *paths) = run(root, "x", "-aoa", "-bso0", "-bsp0", "-o#{dest}", archive, *paths)
 end
