@@ -76,6 +76,27 @@ static void read_volume(void)
 	if (volume * 2 + muted != before) fprintf(stderr, "volume from system.json: %d%s\n", volume, muted ? " (muted)" : "");
 }
 
+const char *PLAT_language(void)
+{
+	static char code[8];
+	FILE *f = fopen(SDCARD "/system.json", "r");
+	if (!f) return NULL;
+	char buf[2048];
+	size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+	fclose(f);
+	buf[n] = 0;
+	const char *key = strstr(buf, "\"lang\"");
+	if (!key) return NULL;
+	const char *start = strchr(key + 6, '"');
+	if (!start) return NULL;
+	start++;
+	size_t len = strcspn(start, ".\"");
+	if (len == 0 || len >= sizeof(code)) return NULL;
+	memcpy(code, start, len);
+	code[len] = 0;
+	return code;
+}
+
 SDL_Surface *PLAT_init(void)
 {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO);

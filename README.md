@@ -37,6 +37,10 @@ over.
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
 there. POWER saves too and switches the console off; at the next power on the game is back where it was.
 
+The few words on the kid's screens are in capitals, the letters children learn first, and follow the
+language set in Onion: English, German, Italian, French, Spanish or Dutch. Any other Onion language shows
+English.
+
 ## What the parent gets
 
 - **You choose the games.** The kid's row is Onion's favourites list. Add a game to the favourites, it

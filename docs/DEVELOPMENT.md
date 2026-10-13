@@ -20,6 +20,7 @@ src/
   osd.c                big volume indicator, drawn over any screen after a volume key
   library.c            scans Roms/ (Onion or MinUI layout), reads Onion's favourites or kids/enabled.txt
   coins.c              daily arcade coins (kids/settings.txt, kids/coins.txt)
+  i18n.c               the kid-facing texts in six languages, picked from Onion's system.json or KIDS_LANG
   coinmon.c            device: counts SELECT presses next to an arcade game, raises the lock flag
   coinlock.c           device: preloaded into RetroArch, hides SELECT from it while the flag exists
   gfx.c                drawing helpers on SDL surfaces (rounded rects, scaling, text)
@@ -74,6 +75,7 @@ make run        # opens the launcher in a 640x480 window using ./sdcard
 make shots      # headless run with scripted input, saves PNGs in shots/ (MinUI fixture)
 make shots-onion# same on the Onion fixture, PNGs in shots/onion/
 make shots-resume # the continue / start over screen, PNGs in shots/resume/
+make shots-lang   # every screen with text in each language, PNGs in shots/lang/<code>/
 make covers     # regenerates both fake SD cards
 make fetch-covers SD=/Volumes/ONIONOS  # downloads missing box art into Roms/<TAG>/Imgs/ of the real card
 ```

@@ -9,6 +9,7 @@
 #include "platform.h"
 #include "library.h"
 #include "gfx.h"
+#include "i18n.h"
 
 #define SDCARD "/mnt/SDCARD"
 #define SYSTEM_PAKS SDCARD "/.system/miyoomini/paks"
@@ -116,7 +117,7 @@ static void power_off(void)
 {
 	gfx_set_target(NULL);
 	gfx_clear(0x000000);
-	gfx_text(font_big, "Powering off", 0xFFFFFF, SCREEN_W / 2, SCREEN_H / 2 - 20, ALIGN_CENTER);
+	gfx_text(font_big, T(STR_POWERING_OFF), 0xFFFFFF, SCREEN_W / 2, SCREEN_H / 2 - 20, ALIGN_CENTER);
 	PLAT_flip(screen);
 	sync();
 	sleep(1);
@@ -241,4 +242,9 @@ void PLAT_exit_to_system(void)
 {
 	put_file("/tmp/kids_exit", "1");
 	sync();
+}
+
+const char *PLAT_language(void)
+{
+	return NULL;
 }

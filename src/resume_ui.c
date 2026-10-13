@@ -1,5 +1,6 @@
 #include <math.h>
 #include "resume_ui.h"
+#include "i18n.h"
 #include "gfx.h"
 #include "platform.h"
 
@@ -111,8 +112,8 @@ static void draw_option(int which, int cx, int cy, SDL_Surface *picture, SDL_Sur
 	if (!cards[which]) cards[which] = compose_option(picture, icon, accent, selected);
 	int size = selected ? 270 : 230, off = selected ? 0 : DROP;
 	if (cards[which]) gfx_blit(cards[which], cx + off / 2 - cards[which]->w / 2, cy + off / 2 - cards[which]->h / 2);
-	gfx_text(selected ? font_big : font_med, label, selected ? INK : 0x7A7A86, cx, cy + size / 2 + (selected ? 22 : 30),
-	         ALIGN_CENTER);
+	gfx_text_fit(selected ? font_big : font_med, label, selected ? INK : 0x7A7A86, cx,
+	             cy + size / 2 + (selected ? 22 : 30), ALIGN_CENTER, 280);
 }
 
 void resume_ui_render(void)
@@ -138,8 +139,8 @@ void resume_ui_render(void)
 		fresh_img = src ? fit(src, f_inner, 10) : NULL;
 	}
 
-	draw_option(0, 175, 250, continue_img, icon_play, GREEN, "Continue", choice == 0);
-	draw_option(1, 465, 250, fresh_img, icon_restart, ORANGE, "Start over", choice == 1);
-	gfx_button_hint(18, 456, "B", RED, "Back", ALIGN_LEFT);
-	gfx_button_hint(622, 456, "A", GREEN, "Go", ALIGN_RIGHT);
+	draw_option(0, 175, 250, continue_img, icon_play, GREEN, T(STR_CONTINUE), choice == 0);
+	draw_option(1, 465, 250, fresh_img, icon_restart, ORANGE, T(STR_START_OVER), choice == 1);
+	gfx_button_hint(18, 456, "B", RED, T(STR_BACK), ALIGN_LEFT);
+	gfx_button_hint(622, 456, "A", GREEN, T(STR_GO), ALIGN_RIGHT);
 }

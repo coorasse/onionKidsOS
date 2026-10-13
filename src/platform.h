@@ -77,6 +77,8 @@ void PLAT_audio_quit(void);
 
 /* Current volume as the host keeps it, for the on-screen indicator. */
 void PLAT_volume(int *level, int *max, int *mute);
+/* Two-letter code of the host's language setting ("de"), NULL when the host has none. */
+const char *PLAT_language(void);
 /* Ask the host launcher (MinUI) to take over once the main loop exits. */
 void PLAT_exit_to_system(void);
 

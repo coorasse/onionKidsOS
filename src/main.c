@@ -7,6 +7,7 @@
 #include "gfx.h"
 #include "library.h"
 #include "kid_ui.h"
+#include "i18n.h"
 #include "resume_ui.h"
 #include "osd.h"
 #include "coins.h"
@@ -150,12 +151,13 @@ int main(int argc, char **argv)
 	signal(SIGTERM, on_terminate);
 	signal(SIGINT, on_terminate);
 	gfx_init(screen, PLAT_font_path());
+	i18n_init();
 
 	const char *root = PLAT_sdcard_root();
 	coins_init(root);
 	library_scan(root);
 	library_load_enabled(root);
-	printf("library: %d systems, %d games (%s)\n", lib.system_count, lib.game_count, root);
+	printf("library: %d systems, %d games (%s), language %s\n", lib.system_count, lib.game_count, root, i18n_language());
 	if (!scripted) PLAT_audio_init();
 
 	/* KIDS_PROFILE=1: average time per frame spent drawing and flipping, printed at exit */

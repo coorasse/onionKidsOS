@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "kid_ui.h"
+#include "i18n.h"
 #include "gfx.h"
 #include "platform.h"
 #include "coins.h"
@@ -251,7 +252,7 @@ static void draw_hold_progress(void)
 	gfx_fill_rounded_border(track, 7, 0xFFFFFF, INK, 2);
 	SDL_Rect fill = {172, 14, (int)(296 * hold_ms / HOLD_MS), 10};
 	if (fill.w > 10) gfx_fill_rounded(fill, 5, GREEN);
-	gfx_text(font_small, "Keep holding to leave kids mode", INK, 320, 30, ALIGN_CENTER);
+	gfx_text_fit(font_small, T(STR_HOLD_TO_LEAVE), INK, 320, 30, ALIGN_CENTER, 600);
 }
 
 /* The page dots are little blocks, each put down at its own angle; white, the current one red. */
@@ -293,9 +294,11 @@ void kid_ui_render(void)
 	gfx_blit(gfx_paper(), 0, 0);
 
 	if (!count) {
-		gfx_text(font_big, "No games yet", INK, 320, 190, ALIGN_CENTER);
-		gfx_text(font_med, "Mark games as favourites in " HOST_SYSTEM_NAME, 0x55555F, 320, 240, ALIGN_CENTER);
-		gfx_text(font_med, "Hold SELECT + START to get there", 0x55555F, 320, 275, ALIGN_CENTER);
+		char mark[160];
+		snprintf(mark, sizeof(mark), T(STR_NO_GAMES_MARK), HOST_SYSTEM_NAME);
+		gfx_text_fit(font_big, T(STR_NO_GAMES), INK, 320, 190, ALIGN_CENTER, 600);
+		gfx_text_fit(font_med, mark, 0x55555F, 320, 240, ALIGN_CENTER, 600);
+		gfx_text_fit(font_med, T(STR_NO_GAMES_HOLD), 0x55555F, 320, 275, ALIGN_CENTER, 600);
 		draw_hold_progress();
 		return;
 	}
@@ -325,14 +328,17 @@ void kid_ui_render(void)
 	draw_title(games[sel]->name);
 	draw_dots();
 	draw_coin_counter();
-	gfx_button_hint(622, 456, "A", GREEN, "Play", ALIGN_RIGHT);
+	gfx_button_hint(622, 456, "A", GREEN, T(STR_PLAY), ALIGN_RIGHT);
 	draw_hold_progress();
 
 	if (notice_ms > 0) {
-		const char *msg = "No coins left today, come back tomorrow";
-		int w = gfx_text_width(font_med, msg) + 48, cx = 370; /* centred in the space right of the coin counter */
+		const char *msg = T(STR_NO_COINS);
+		const int max_w = 482, cx = 365; /* centred in the space right of the coin counter */
+		TTF_Font *font = gfx_text_width(font_med, msg) <= max_w ? font_med : font_small;
+		int w = gfx_text_width(font, msg) + 48;
+		if (w > max_w + 48) w = max_w + 48;
 		SDL_Rect pill = {cx - w / 2, 10, w, 42};
 		gfx_fill_rounded(pill, 21, INK);
-		gfx_text(font_med, msg, 0xFFFFFF, cx, 18, ALIGN_CENTER);
+		gfx_text_fit(font, msg, 0xFFFFFF, cx, 31 - TTF_FontHeight(font) / 2, ALIGN_CENTER, max_w);
 	}
 }

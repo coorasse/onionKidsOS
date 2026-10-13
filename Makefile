@@ -10,7 +10,7 @@ endif
 CFLAGS += $(shell pkg-config --cflags $(PKGS) 2>/dev/null)
 LDLIBS = $(shell pkg-config --libs $(PKGS) 2>/dev/null) -lm
 
-COMMON = src/main.c src/gfx.c src/library.c src/kid_ui.c src/resume_ui.c src/osd.c src/input.c src/coins.c
+COMMON = src/main.c src/gfx.c src/library.c src/kid_ui.c src/resume_ui.c src/osd.c src/input.c src/coins.c src/i18n.c
 HEADERS = $(wildcard src/*.h)
 
 SHOT_SCRIPT = shot:01-kid-first,right,shot:02-kid-second,right,right,shot:03-kid-fourth,\
@@ -50,6 +50,25 @@ shots-resume: build/kidsos
 	rm -rf build/sdcard-resume && cp -R sdcard-onion build/sdcard-resume
 	python3 tools/make_covers.py --favourites build/sdcard-resume "GB/Tetris.gb" "GBA/Mario Kart Super Circuit.gba" "GBA/Pokemon Emerald.gba"
 	KIDS_ROOT=build/sdcard-resume ./build/kidsos --script "shot:01-kid,a,shot:02-no-state-plays-directly,b,right,right,a,shot:03-continue,right,shot:04-start-over,b,shot:05-back,left,a,shot:06-no-thumbnail,a,shot:07-playing" --shots shots/resume
+
+# every language on the screens with text: kid screen, hold-to-leave hint, resume choice, no coins, no games
+LANGS = en de it fr es nl
+shots-lang: build/kidsos
+	rm -rf shots/lang build/sdcard-lang build/sdcard-lang-coins build/sdcard-lang-empty
+	cp -R sdcard-onion build/sdcard-lang
+	python3 tools/make_covers.py --favourites build/sdcard-lang "GB/Tetris.gb" "GBA/Mario Kart Super Circuit.gba" "GBA/Pokemon Emerald.gba"
+	cp -R sdcard build/sdcard-lang-coins
+	printf 'Arcade (FBN)/Street Fighter II.zip\n' > build/sdcard-lang-coins/kids/enabled.txt
+	printf 'arcade_coins_per_day=3\n' > build/sdcard-lang-coins/kids/settings.txt
+	cp -R sdcard build/sdcard-lang-empty
+	: > build/sdcard-lang-empty/kids/enabled.txt
+	for l in $(LANGS); do \
+		mkdir -p shots/lang/$$l; \
+		rm -f build/sdcard-lang-coins/kids/coins.txt; \
+		KIDS_LANG=$$l KIDS_ROOT=build/sdcard-lang ./build/kidsos --script "shot:01-kid,hold:select+start:1500,shot:02-hold,wait:600,right,right,a,shot:03-continue,right,shot:04-start-over" --shots shots/lang/$$l; \
+		KIDS_LANG=$$l KIDS_ROOT=build/sdcard-lang-coins ./build/kidsos --script "a,select,select,select,b,a,shot:05-no-coins" --shots shots/lang/$$l; \
+		KIDS_LANG=$$l KIDS_ROOT=build/sdcard-lang-empty ./build/kidsos --script "shot:06-no-games" --shots shots/lang/$$l; \
+	done
 
 covers:
 	python3 tools/make_covers.py

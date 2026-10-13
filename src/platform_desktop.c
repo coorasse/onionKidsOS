@@ -260,3 +260,8 @@ void PLAT_exit_to_system(void)
 {
 	printf("[desktop] exit to system launcher\n");
 }
+
+const char *PLAT_language(void)
+{
+	return NULL;
+}
