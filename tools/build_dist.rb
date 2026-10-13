@@ -22,7 +22,7 @@ WORK = File.join(ROOT, "build/dist")
 CARD = File.join(WORK, "card") # what the parent copies to the SD card
 PAK = "card/miyoo/app/.tmp_update/onion.pak"
 RA_PAK = "card/RetroArch/retroarch.pak"
-OUT = File.join(ROOT, "build", "KidsOS-#{KIDSOS_VERSION}-onion#{ONION_VERSION}.zip")
+OUT = File.join(ROOT, "build", "KidsOS-#{KIDSOS_VERSION}.zip")
 
 def step(msg) = puts("-- #{msg}")
 
@@ -162,6 +162,20 @@ FileUtils.cp(File.join(ROOT, "onion/startup.sh"), File.join(PAK_DIR, ".tmp_updat
 end
 File.write(File.join(PAK_DIR, ".kidsos/version.txt"), "#{KIDSOS_VERSION}\n")
 
+# Onion's installer creates system.json from the template in the pak and applies the theme named there before it
+# reboots, and the per-device mirror it writes at shutdown keeps that choice. The kids hook runs only at the
+# next boot, too late to change it. So the theme ships in the pak next to Onion's and the template points at it.
+THEME = "Themes/KidsOS by coorasse"
+step "making the KidsOS theme the default"
+FileUtils.mkdir_p(File.join(PAK_DIR, "Themes"))
+FileUtils.cp_r(File.join(ROOT, "onion/theme/KidsOS by coorasse"), File.join(PAK_DIR, THEME))
+Dir.glob(File.join(PAK_DIR, ".tmp_update/res/miyoo*_system.json")).sort.each do |template|
+  json = File.read(template)
+  abort "#{template} has no theme key" unless json.sub!(/"theme":\s*"[^"]*"/, %Q{"theme":\t"/mnt/SDCARD/#{THEME}/"})
+  File.write(template, json)
+  puts "   #{File.basename(template)}"
+end
+
 # Emulators every card gets without a trip through Onion's Package Manager. Their packages are copied the way
 # the Package Manager copies them onto the card (Emu/<TAG> and Roms/<TAG>), so Onion lists them as installed
 # at the first boot and keeps them up to date like any other package.
@@ -207,7 +221,8 @@ step "repacking onion.pak"
 repack("pak", PAK,
        %w[.kidsos/kidsos.elf .kidsos/install.sh .kidsos/startup.sh .tmp_update/startup/kidsos.sh .tmp_update/runtime.sh
           .tmp_update/bin/MainUI-354-clean .tmp_update/bin/gameSwitcher App/PackageManager/launch.sh] +
-       ["#{BOOT_OVERRIDE}/bootScreen.png"] + tags.flat_map { |t| ["Emu/#{t}/config.json", "Roms/#{t}"] },
+       ["#{BOOT_OVERRIDE}/bootScreen.png", "#{THEME}/config.json", ".tmp_update/res/miyoo354_system.json"] +
+         tags.flat_map { |t| ["Emu/#{t}/config.json", "Roms/#{t}"] },
        DROPPED["pak"])
 step "repacking retroarch.pak"
 repack("ra", RA_PAK,

@@ -94,9 +94,9 @@ Continue brings it back.
 Arcade coins are a different thing. They work like a real arcade: a few coins are the budget, when they're
 gone the game ends. The kid can still play something else.
 
-> **Early version.** The launcher runs on a real Miyoo Mini Plus. The zip below has only been tested in an
-> emulated boot. If something goes wrong, see [Troubleshooting](#troubleshooting). KidsOS only writes to the
-> SD card, never to the console itself.
+> KidsOS only writes to the SD card, never to the console itself. The one exception is the Wi-Fi network you
+> give the installer, which Onion keeps on the console like its own Wi-Fi settings. If something goes wrong,
+> see [Troubleshooting](#troubleshooting).
 
 ## Installation
 
@@ -110,23 +110,56 @@ You need:
 
 It takes about ten minutes, most of it waiting.
 
-### 1. Format the card as FAT32
+### 1. Put KidsOS on the card
 
-- **Mac:** open Disk Utility, select the card itself (the top entry, not the volume under it), click
-  *Erase*, pick *MS-DOS (FAT)* and *Master Boot Record*, click *Erase*.
-- **Windows:** for cards over 32 GB use [Rufus](https://rufus.ie/): Boot selection *Non bootable*, File
-  system *Large FAT32*, then *Start*.
+Put the card in the reader, open a terminal (on a Mac: *Terminal* in *Applications › Utilities*) and paste
+this line:
 
-### 2. Copy KidsOS to the card
+```bash
+curl -fsSL https://raw.githubusercontent.com/coorasse/onionKidsOS/main/install.sh | sh
+```
 
-1. Download the latest `KidsOS-x.y.z.zip` from the
-   [releases page](https://github.com/coorasse/onionKidsOS/releases).
-2. Unzip it. You get seven folders and three files.
+The installer asks a few questions and does the rest:
+
+1. It finds the card and shows it to you. With more than one card in the computer, you pick the one.
+2. A new card gets erased, so you type the card's name to go on. Nothing is erased before that. A card that
+   already has KidsOS or Onion can be updated instead, see [Updating](#updating).
+3. It asks the language of the console and your Wi-Fi network. With Wi-Fi the console finds a picture for
+   every game by itself. Press Enter to skip Wi-Fi.
+4. It asks which KidsOS version you want. Press Enter for the newest.
+5. It downloads KidsOS, formats the card and copies everything over. When it says *All done*, take the card
+   out.
+
+**Ctrl-C** stops it at any time. It works on Mac and Linux; Linux asks for your password to format the card.
+A Windows script is on the way, until then use the steps by hand below.
+
+**Options.** Put them after `sh -s --`, for example:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/coorasse/onionKidsOS/main/install.sh | sh -s -- --zip ~/Downloads/KidsOS-0.2.0.zip
+```
+
+- `--zip FILE` uses a KidsOS zip you already have instead of downloading one.
+- `--disk NAME` says which card to use instead of looking for it: `disk4` on a Mac (see `diskutil list`),
+  `/dev/sdb` or `/dev/mmcblk0` on Linux. It still asks before erasing anything.
+
+<details>
+<summary>By hand instead</summary>
+
+1. Format the card as FAT32. **Mac:** open Disk Utility, select the card itself (the top entry, not the
+   volume under it), click *Erase*, pick *MS-DOS (FAT)* and *Master Boot Record*, click *Erase*. **Windows:**
+   for cards over 32 GB use [Rufus](https://rufus.ie/): Boot selection *Non bootable*, File system *Large
+   FAT32*, then *Start*.
+2. Download the latest `KidsOS-x.y.z.zip` from the
+   [releases page](https://github.com/coorasse/onionKidsOS/releases) and unzip it. You get seven folders and
+   three files.
 3. Copy **all of it** to the root of the card. One folder, `.tmp_update`, is hidden. On a Mac press
    `Cmd + Shift + .` in the Finder to show hidden files, on Windows turn on *Hidden items* in the *View*
    menu. Without that folder nothing happens.
 
-### 3. First start
+</details>
+
+### 2. First start
 
 1. Put the card in the console and turn it on. KidsOS installs itself in about two minutes. There is nothing
    to press.
@@ -135,7 +168,7 @@ It takes about ten minutes, most of it waiting.
 Game Boy, Game Boy Color, Game Boy Advance, NES, SNES, Nintendo DS and Neo Geo are ready out of the box. For
 other systems (for example *PlayStation*) open *Apps* › *Package Manager* in Onion's menu later.
 
-### 4. Add games
+### 3. Add games
 
 1. Turn the console off and put the card back in the computer.
 2. Copy your game files into `Roms/<SYSTEM>/`. The folder names are short codes: `GB` (Game Boy), `GBC`
@@ -157,7 +190,8 @@ To remove a game, do the same and pick *Remove from favorites*.
 
 ### Pictures for the games
 
-Turn on Wi-Fi once: hold **SELECT + START**, open *Apps* › *Tweaks* › *Network*, turn Wi-Fi on and pick
+If you gave the installer your Wi-Fi network, this is already done. Otherwise turn on Wi-Fi once: hold
+**SELECT + START**, open *Apps* › *Tweaks* › *Network*, turn Wi-Fi on and pick
 your network. From then on the console downloads missing pictures every time the kids screen comes up. They
 appear within a minute. Without Wi-Fi the tiles show the game's name.
 
@@ -214,8 +248,18 @@ the next power on.
 
 ## Updating
 
-Download the new zip, copy the folders onto the card over the old ones (replace when asked), put the card
-back and turn the console on. Onion updates itself and keeps games, saves and favourites.
+Put the card in the computer and run the same command as for the installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/coorasse/onionKidsOS/main/install.sh | sh
+```
+
+It sees that the card already has KidsOS and offers to update it. Games, saves and favourites stay. It also
+asks which version you want, the newest is the default. Put the card back and turn the console on: Onion
+updates itself in a minute or two.
+
+By hand: download the new zip, copy the folders onto the card over the old ones (replace when asked), put
+the card back and turn the console on.
 
 Don't use Onion's own *OTA update* app. It would install plain Onion and the kids screen would be gone.
 Copying a KidsOS zip onto the card brings it back.
@@ -234,9 +278,9 @@ arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder). Plain
 - **Onion's boot picture instead of the KidsOS one.** Harmless, the kids screen still comes up. Onion's *Reset
   theme overrides* does this; the next power on puts the KidsOS picture back.
 - **Black screen, nothing reacts.** Hold **POWER** until the console is off, then turn it on again.
-- **The kids screen is empty.** No favourites yet, see [Add games](#4-add-games).
-- **The console starts into Onion's menu.** Copy the KidsOS zip onto the card again, see
-  [Copy KidsOS to the card](#2-copy-kidsos-to-the-card).
+- **The kids screen is empty.** No favourites yet, see [Add games](#3-add-games).
+- **The console starts into Onion's menu.** Run the installer again and choose to update the card, see
+  [Updating](#updating).
 - **A game has no picture.** Check that Wi-Fi is on and that the file is named after the game.
   `.kidsos/covers.log` on the card says what was tried.
 - **A game doesn't start.** Try it from Onion's menu (SELECT + START). If it doesn't start there either,

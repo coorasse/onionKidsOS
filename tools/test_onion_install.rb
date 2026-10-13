@@ -44,7 +44,9 @@ ORIGINAL_SYSTEM_JSON = <<~JSON
   {
   \t"vol":\t10,
   \t"theme":\t"/mnt/SDCARD/Themes/Silky by DiMo/",
-  \t"fontsize":\t24
+  \t"language":\t"en.lang",
+  \t"fontsize":\t24,
+  \t"wifi":\t0
   }
 JSON
 # what Onion's Tweaks app writes when the parent had remapped the MENU button
@@ -150,7 +152,7 @@ def build_sd_card
   FileUtils.mkdir_p("#{SYSDIR}/config/system")
   File.write(KEYMAP, ORIGINAL_KEYMAP)
   FileUtils.mkdir_p("#{SYSDIR}/res")
-  File.write("#{SYSDIR}/res/miyoo354_system.json", "{\"vol\": 20, \"mute\": 0}\n")
+  File.write("#{SYSDIR}/res/miyoo354_system.json", "{\"vol\": 20, \"mute\": 0}\n") unless DIST_ZIP
   # the parent's MainUI settings as runtime.sh leaves them: on the card, mirrored per device under config/
   FileUtils.mkdir_p("#{SYSDIR}/config/system")
   [SYSTEM_JSON, DEVICE_JSON].each { |f| File.write(f, ORIGINAL_SYSTEM_JSON) }
@@ -238,8 +240,12 @@ if DIST_ZIP
   puts "== first boot from the zip's onion.pak (#{File.basename(DIST_ZIP)})"
   check "startup hook is in the pak", File.exist?("#{SYSDIR}/startup/kidsos.sh")
   check "launcher is in the pak", File.exist?("#{SD}/.kidsos/install.sh") && File.exist?("#{SD}/.kidsos/version.txt")
-check "kids boot screen in the pak, so the first boot already shows it",
-      (File.read(BOOT_OVERRIDE) == File.read("#{ROOT}/onion/bootScreen.png") rescue false)
+  check "kids boot screen in the pak, so the first boot already shows it",
+        (File.read(BOOT_OVERRIDE) == File.read("#{ROOT}/onion/bootScreen.png") rescue false)
+  check "KidsOS theme in the pak next to Onion's themes, so the installer's theme step finds it",
+        (FileUtils.identical?("#{THEME}/config.json", "#{ROOT}/onion/theme/KidsOS by coorasse/config.json") rescue false)
+  check "system.json templates in the pak select the KidsOS theme, so the first boot starts with it",
+        Dir.glob("#{SYSDIR}/res/miyoo*_system.json").then { |t| t.size == 2 && t.all? { |f| File.read(f).include?(KIDS_THEME_KEY) } }
   %w[GB GBC GBA FC SFC NEOGEO].each do |tag|
     package = Dir.glob("#{SD}/App/PackageManager/data/Emu/*/Emu/#{tag}").first
     check "#{tag} emulator preinstalled as the Package Manager would install it",
@@ -406,6 +412,29 @@ end
 check "no .real left behind", Dir.glob("#{SYSDIR}/bin/*.real").empty?
 check "keymap restored", (File.read(KEYMAP) == ORIGINAL_KEYMAP rescue false) && !File.exist?("#{KEYMAP}.kidsos-orig")
 check ".kidsos removed", !File.exist?("#{SD}/.kidsos")
+
+puts "== the card installer left kids/setup.txt: language and Wi-Fi are applied once"
+build_sd_card
+FileUtils.mkdir_p("#{SD}/kids")
+File.write("#{SD}/kids/setup.txt", "language=de\nwifi_name=Casa Rodi\nwifi_password=segreto123\n")
+ok, out = in_container(<<~SH)
+  sh /mnt/SDCARD/.kidsos/install.sh || exit 1
+  echo "--- wpa_supplicant.conf"
+  cat /appconfigs/wpa_supplicant.conf
+  test -f /tmp/settings_changed && echo "--- settings reload requested"
+  sh /mnt/SDCARD/.kidsos/install.sh | grep -c "setup applied" || echo "--- second run: setup not applied again"
+SH
+check "language set in system.json and its per-device mirror",
+      ok && [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"language":\t"de.lang"}) }, out
+check "Wi-Fi switched on in system.json and its per-device mirror",
+      [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"wifi":\t1}) }, out
+check "the other settings untouched", File.read(SYSTEM_JSON).include?(%Q{"fontsize":\t24}), File.read(SYSTEM_JSON)
+check "Wi-Fi network written where Onion keeps it, password included",
+      out.include?(%Q{ssid="Casa Rodi"}) && out.include?(%Q{psk="segreto123"}) && out.include?("update_config=1"), out
+check "Onion's network checker asked to turn Wi-Fi on", events.any? { |l| l == "update_networking check" }, out
+check "keymon told to reload the settings", out.include?("settings reload requested"), out
+check "setup.txt removed, so the password is gone and nothing is applied twice",
+      !File.exist?("#{SD}/kids/setup.txt") && out.include?("second run: setup not applied again"), out
 
 puts "== install without a keymap.json, POWER already set to shutdown by the parent, ssh=0 + uninstall"
 # keep the boot scenario logs around for debugging

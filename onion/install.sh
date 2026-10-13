@@ -131,13 +131,52 @@ write_theme() {
 	fi
 	[ -f "$CONFIG/theme-set" ] && return 0
 	[ -f /mnt/SDCARD/system.json ] || return 0
+	set_system theme '"/mnt/SDCARD/Themes/KidsOS by coorasse/"' || fail "cannot set the theme"
+	touch "$CONFIG/theme-set" && echo "KidsOS theme set as default"
+}
+
+# $1 = key in system.json, $2 = its new value as JSON; written to system.json and its per-device mirrors
+set_system() {
 	for json in /mnt/SDCARD/system.json "$CONFIG"/system/*.json; do
 		[ -f "$json" ] || continue
-		sed -i 's#"theme":[[:space:]]*"[^"]*"#"theme":\t"/mnt/SDCARD/Themes/KidsOS by coorasse/"#' "$json" ||
-			fail "cannot set the theme in $(basename "$json")"
+		sed -i "s#\"$1\":[[:space:]]*[^,}]*#\"$1\":\t$2#" "$json" || return 1
 	done
 	touch /tmp/settings_changed
-	touch "$CONFIG/theme-set" && echo "KidsOS theme set as default"
+}
+
+# The card installer leaves the parent's choices in kids/setup.txt: the language and the Wi-Fi network. Both
+# are applied once and the file goes, the Wi-Fi password with it. The network goes where Onion's own Wi-Fi
+# settings keep it, on the console, and Onion's network checker turns Wi-Fi on when it sees the setting.
+write_setup() {
+	setup=/mnt/SDCARD/kids/setup.txt
+	[ -f "$setup" ] || return 0
+	[ -f /mnt/SDCARD/system.json ] || return 0
+	lang=$(sed -n 's/^language=//p' "$setup" | head -n 1)
+	ssid=$(sed -n 's/^wifi_name=//p' "$setup" | head -n 1)
+	psk=$(sed -n 's/^wifi_password=//p' "$setup" | head -n 1)
+	if [ -n "$lang" ]; then
+		set_system language "\"$lang.lang\"" || fail "cannot set the language"
+		echo "language set to $lang"
+	fi
+	if [ -n "$ssid" ]; then
+		conf=/appconfigs/wpa_supplicant.conf
+		[ -f "$conf" ] || printf 'ctrl_interface=/var/run/wpa_supplicant\nupdate_config=1\n' > "$conf"
+		if grep -qF "ssid=\"$ssid\"" "$conf"; then
+			echo "Wi-Fi network already known"
+		elif [ -n "$psk" ]; then
+			printf '\nnetwork={\n\tssid="%s"\n\tpsk="%s"\n}\n' "$ssid" "$psk" >> "$conf" ||
+				fail "cannot add the Wi-Fi network"
+			echo "Wi-Fi network added"
+		else
+			printf '\nnetwork={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$ssid" >> "$conf" || fail "cannot add the Wi-Fi network"
+			echo "open Wi-Fi network added"
+		fi
+		set_system wifi 1 || fail "cannot turn Wi-Fi on"
+		net="$SYS/script/network/update_networking.sh"
+		[ -f "$net" ] && sh "$net" check > /dev/null 2>&1 &
+		echo "Wi-Fi on"
+	fi
+	rm -f "$setup" && echo "setup applied"
 }
 
 # Onion's bootScreen looks for the picture in Saves/CurrentProfile/theme/skin/extra/ first, then in the theme,
@@ -246,6 +285,7 @@ write_keymap
 write_startup_hook
 write_app
 write_theme
+write_setup
 write_boot_screen
 write_retroarch_cfg
 write_power_button

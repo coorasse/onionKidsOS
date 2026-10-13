@@ -5,6 +5,12 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` puts KidsOS on a card with one command on Mac and Linux: it finds the card, asks the
+  language and the Wi-Fi network, downloads the chosen version, formats the card and copies it over. A card
+  that already has KidsOS or Onion is updated in place, games and saves included.
+
 ### Changed
 
 - The first start needs no button press: Onion's guide and Package Manager are skipped and the console
