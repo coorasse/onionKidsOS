@@ -371,8 +371,10 @@ mac_format() {
 
 mac_eject() { diskutil eject "/dev/$DISK" >/dev/null; }
 
+# sudo asks for the password here, in the open, not under a spinner
+linux_sudo() { sudo -v || die "Stopped, nothing was changed."; }
+
 linux_format() {
-  say "     Linux needs administrator rights to format the card."
   for mounted in $(lsblk -nro MOUNTPOINT "$DISK"); do sudo umount "$mounted"; done
   printf 'label: dos\ntype=c\n' | sudo sfdisk -q "$DISK"
   sleep 2
@@ -440,6 +442,10 @@ case $OS in
 esac
 
 banner
+if [ "$OS" = linux ]; then
+  say " Linux needs administrator rights to read and format the card."
+  linux_sudo
+fi
 [ -n "$DISK" ] || pick_card
 choose_mode
 [ "$MODE" = erase ] && ask_setup
@@ -453,6 +459,7 @@ fi
 spin "     Checking ${ZIP##*/}..." unzip -tq "$ZIP" || die "${ZIP##*/} is damaged. Delete it and run this again."
 
 if [ "$MODE" = erase ]; then
+  [ "$OS" = linux ] && linux_sudo
   spin "2/3  Formatting the card..." ${OS}_format
   MOUNT=$(cat "$SPIN_OUT")
   spin "3/3  Copying KidsOS to the card, a few minutes..." unzip -q "$ZIP" -d "$MOUNT"
@@ -471,6 +478,7 @@ fi
 find "$MOUNT" -name '._*' -type f -delete 2>/dev/null || true
 [ -f "$MOUNT/.tmp_update/updater" ] || die "The copy went wrong: .tmp_update/updater is missing on the card."
 version=$(cat "$MOUNT/kidsos_version.txt" 2>/dev/null || echo "KidsOS")
+[ "$OS" = linux ] && linux_sudo
 spin "     Finishing the card..." ${OS}_eject
 
 say ""

@@ -42,6 +42,7 @@ tools/build_dist.rb    builds the KidsOS zip from the official Onion release (ma
 tools/test_onion_install.rb  boots Onion's runtime.sh in Docker against a fake card (make test-onion, make test-dist)
 tools/test_first_install.rb  plays Onion's installer from the zip on a fresh card (make test-first-install)
 tools/test_covers.rb   runs covers.sh in Docker against a fake card and a fake thumbnail server (make test-covers)
+tools/test_card_install.rb  plays the card installer (root install.sh) on Ubuntu in Docker (make test-card-install)
 tools/sevenzip.rb      7z for the two scripts above (local binary or Alpine container)
 tools/make_covers.py   regenerates the fake SD cards
 tools/fetch_covers.rb  downloads box art for the real card from thumbnails.libretro.com
@@ -304,6 +305,15 @@ The zip is 7z-edited with `7zz`/`7z` when installed (`brew install sevenzip`), o
 container. `make test-dist` boots the `runtime.sh` from the zip's `onion.pak` in BusyBox: the hook must
 install the shims at the first boot, change nothing at the second, and reinstall them after a simulated
 Onion update (the installer stub's wipe of `.tmp_update` except `config/` and `onionVersion/`).
+
+The card installer parents run (`install.sh` at the root, `curl ... | sh`) is played on Linux by
+`make test-card-install`, without a Linux machine: an Ubuntu container with `sudo`, `sfdisk`, `mkfs.vfat` and
+the other tools the script asks for, a loop device over a sparse 1 GB file as the memory card (the host `/dev`
+is mounted so the partition node the kernel makes is visible, and `lsblk` is wrapped to call loop devices
+removable, the one thing a loop device cannot be) and the answers typed into the script via `script`, which
+gives it the `/dev/tty` it reads from. It plays a fresh card put in while the installer waits for one, an
+update that keeps the games, a card with plain Onion, stopping at the menu and erasing a card that had
+KidsOS. The Mac side runs on a real card by hand.
 
 ### Releasing
 

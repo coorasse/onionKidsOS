@@ -33,6 +33,10 @@ LSBLK = <<~'SH'
   /usr/bin/lsblk "$@" | sed '/NAME="\/dev\/loop/s/RM="0"/RM="1"/'
 SH
 
+# unmounts and detaches whatever loop device sits on the card image
+DETACH = "for d in $(losetup -j #{CARD} | cut -d: -f1); do " \
+         "for m in $(lsblk -nro MOUNTPOINT \"$d\"); do umount \"$m\"; done; losetup -d \"$d\"; done"
+
 $failures = []
 def check(name, ok, detail = nil)
   puts "#{ok ? "ok  " : "FAIL"} #{name}"
@@ -53,7 +57,6 @@ puts "building #{IMAGE}..."
 docker!("build", "-q", "-t", IMAGE, "-", input: DOCKERFILE)
 $container = docker!("run", "-d", "--rm", "--privileged", "-v", "/dev:/dev", "-v", "#{ROOT}:/work:ro",
                      "-v", "#{File.dirname(ZIP)}:/zip:ro", IMAGE, "sleep", "infinity").strip
-DETACH = "losetup -j #{CARD} | cut -d: -f1 | xargs -r losetup -d"
 at_exit do
   docker("exec", $container, "sh", "-c", DETACH)
   docker("kill", $container)
@@ -65,7 +68,7 @@ def new_card = exec!("sh", "-c", "#{DETACH}; rm -f #{CARD}; truncate -s 1G #{CAR
 def insert_card = exec!("losetup", "-fP", "--show", CARD).strip
 def disk = exec!("sh", "-c", "losetup -j #{CARD} | cut -d: -f1").strip
 
-# runs a shell snippet with the card's partition mounted at /card
+# runs a shell snippet with the card's partition mounted at /card: its output and whether it succeeded
 def on_card(script)
   out, status = docker("exec", $container, "sh", "-c",
                        "mkdir -p /card && mount #{disk}p1 /card || exit 99; (#{script}); rc=$?; umount /card; exit $rc")
@@ -73,8 +76,18 @@ def on_card(script)
   [out, status.success?]
 end
 
+def on_card!(script)
+  out, ok = on_card(script)
+  abort "#{script} failed on the card:\n#{out}" unless ok
+end
+
 def card_has?(path) = on_card("test -e /card/#{path}").last
 def card_file(path) = on_card("cat /card/#{path}").first
+
+# the pty ends lines with CR LF; within a line, what came after the last CR is what the parent sees
+def without_spinner(output)
+  output.force_encoding("UTF-8").scrub.gsub("\r\n", "\n").lines.map { |l| l.split("\r").last }.join
+end
 
 # runs install.sh with the arguments; the block types the answers (and may put the card in first). Returns
 # the output without the spinner frames and whether the script succeeded.
@@ -82,12 +95,17 @@ def install(args)
   cmd = ["docker", "exec", "-i", $container, "script", "-qec", "sh /work/install.sh #{args}", "/dev/null"]
   Open3.popen2e(*cmd) do |stdin, out, wait|
     type = ->(*answers) { stdin.write(answers.map { |a| "#{a}\n" }.join); stdin.flush }
+    sleep 1 # what is typed before the shell owns the pty is lost
     yield type
-    output = Timeout.timeout(600) { out.read }.force_encoding("UTF-8").scrub
-    [output.lines.map { |l| l.split("\r").last }.join, wait.value.success?]
+    output = +""
+    begin
+      Timeout.timeout(600) { output << out.readpartial(4096) while true }
+    rescue EOFError
+      [without_spinner(output), wait.value.success?]
+    rescue Timeout::Error
+      abort "install.sh did not finish within 10 minutes:\n#{without_spinner(output).lines.last(30).join}"
+    end
   end
-rescue Timeout::Error
-  abort "install.sh did not finish within 10 minutes"
 end
 
 version = IO.popen(["unzip", "-p", ZIP, "kidsos_version.txt"], &:read).strip
@@ -99,7 +117,8 @@ out, ok = install(ZIP_ARG) do |type|
   dev = insert_card
   type.(dev, "2", "Kids Net", "secret")
 end
-check "waits for the card and finds it", out.include?("No memory card found") && out.include?("Found a memory card:"), out
+check "waits for the card and finds it",
+      out.include?("No memory card found") && out.include?("Found a memory card:"), out
 check "runs through", ok && out.include?("All done! #{version} is on the card"), out
 check "says what the console will be", out.include?("in Deutsch and connected to Kids Net"), out
 check "DOS partition table with one FAT32 partition", exec!("sfdisk", "-d", disk).include?("type=c") &&
@@ -107,31 +126,37 @@ check "DOS partition table with one FAT32 partition", exec!("sfdisk", "-d", disk
 check "card is unmounted at the end", exec!("lsblk", "-nro", "MOUNTPOINT", "#{disk}p1").strip.empty?
 check "KidsOS is on the card", card_has?("kidsos_version.txt") && card_has?(".tmp_update/updater") &&
   card_file("kidsos_version.txt").strip == version
-check "setup.txt has the language and the Wi-Fi", card_file("kids/setup.txt") == "language=de\nwifi_name=Kids Net\nwifi_password=secret\n"
+check "setup.txt has the language and the Wi-Fi",
+      card_file("kids/setup.txt") == "language=de\nwifi_name=Kids Net\nwifi_password=secret\n"
 
 puts "== update keeps the games"
-on_card("mkdir -p /card/Roms/GB && echo game > /card/Roms/GB/test.gb && echo 'KidsOS 0.0.9' > /card/kidsos_version.txt")
+on_card!("mkdir -p /card/Roms/GB && echo game > /card/Roms/GB/test.gb && " \
+         "echo 'KidsOS 0.0.9' > /card/kidsos_version.txt")
 out, ok = install("#{ZIP_ARG} --disk #{disk}") { |type| type.("") }
 check "sees the old version", out.include?("It already has KidsOS 0.0.9."), out
-check "updates by default", ok && out.include?("Keeping the games and saves") && out.include?("keeps the\ngames, saves and favourites"), out
+check "updates by default", ok && out.include?("Keeping the games and saves") &&
+  out.include?("keeps the\ngames, saves and favourites"), out
 check "games stay, version is new, setup is untouched", card_has?("Roms/GB/test.gb") &&
   card_file("kidsos_version.txt").strip == version && card_file("kids/setup.txt").start_with?("language=de")
 
 puts "== card with plain Onion"
-on_card("rm /card/kidsos_version.txt && mkdir -p /card/.tmp_update/onionVersion && echo 4.3.1-1 > /card/.tmp_update/onionVersion/version.txt")
+on_card!("rm /card/kidsos_version.txt && mkdir -p /card/.tmp_update/onionVersion && " \
+         "echo 4.3.1-1 > /card/.tmp_update/onionVersion/version.txt")
 out, ok = install(ZIP_ARG) { |type| type.("1") }
 check "sees Onion", out.include?("It has Onion 4.3.1-1, no KidsOS yet.") && out.include?("Add KidsOS to it"), out
 check "adds KidsOS, games stay", ok && card_has?("kidsos_version.txt") && card_has?("Roms/GB/test.gb"), out
 
 puts "== stop at the menu"
 out, ok = install(ZIP_ARG) { |type| type.("3") }
-check "stops without touching the card", !ok && out.include?("Stopped, nothing was changed.") && card_has?("Roms/GB/test.gb"), out
+check "stops without touching the card",
+      !ok && out.include?("Stopped, nothing was changed.") && card_has?("Roms/GB/test.gb"), out
 
 puts "== erase a card that had KidsOS"
 out, ok = install(ZIP_ARG) { |type| type.("2", disk, "1", "") }
 check "asks for the card's name", out.include?("Type \"#{disk}\" to erase it"), out
 check "erases and installs", ok && out.include?("in English.") && !out.include?("connected to"), out
-check "games are gone, setup has only the language", !card_has?("Roms/GB/test.gb") && card_file("kids/setup.txt") == "language=en\n"
+check "games are gone, setup has only the language",
+      !card_has?("Roms/GB/test.gb") && card_file("kids/setup.txt") == "language=en\n"
 
 puts
 if $failures.empty?
