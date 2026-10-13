@@ -100,7 +100,7 @@ mac_cards() {
 }
 
 linux_cards() {
-  lsblk -dnPo NAME,SIZE,RM,TRAN,MODEL | while read -r line; do
+  lsblk -dnpPo NAME,SIZE,RM,TRAN,MODEL | while read -r line; do
     eval "$line"
     case $NAME in
       /dev/mmcblk*) ;;

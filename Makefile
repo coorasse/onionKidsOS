@@ -147,6 +147,10 @@ test-dist: ../reference/Onion
 test-first-install:
 	ruby tools/test_first_install.rb $(KIDSOS_ZIP)
 
+# plays the card installer (install.sh) on Linux: Ubuntu in Docker with a loop device as the memory card
+test-card-install:
+	ruby tools/test_card_install.rb $(KIDSOS_ZIP)
+
 # Over Wi-Fi: enable SSH in Onion (Apps > Tweaks > Network), then: make deploy MIYOO=<device ip>
 MIYOO ?=
 SSH = tools/miyoo-ssh.sh $(MIYOO)
@@ -222,4 +226,4 @@ device-shots:
 clean:
 	rm -rf build shots/*.png shots/onion
 
-.PHONY: test-first-install run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean
+.PHONY: test-first-install test-card-install run shots shots-onion shots-coins shots-resume covers miyoomini pak onion onion-dist dist test-dist deploy deploy-card undeploy recover test-onion test-covers device-restart device-log device-shot device-shots clean
