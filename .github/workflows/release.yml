@@ -1,8 +1,11 @@
-# Tag a commit as vX.Y.Z and push the tag: the KidsOS zip is built and attached to a GitHub pre-release.
+# Publish a release on GitHub (tag vX.Y.Z, new or existing): the KidsOS zip is built, boot-tested in BusyBox
+# and attached to that release a few minutes later. A draft builds nothing until it is published.
 name: Release
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
+permissions:
+  contents: write
 jobs:
   dist:
     runs-on: ubuntu-latest
@@ -18,5 +21,4 @@ jobs:
         run: make test-dist KIDSOS_VERSION="${GITHUB_REF_NAME#v}"
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
           files: build/KidsOS-*.zip

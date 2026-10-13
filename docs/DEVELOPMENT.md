@@ -293,8 +293,14 @@ container. `make test-dist` boots the `runtime.sh` from the zip's `onion.pak` in
 install the shims at the first boot, change nothing at the second, and reinstall them after a simulated
 Onion update (the installer stub's wipe of `.tmp_update` except `config/` and `onionVersion/`).
 
-`.github/workflows/release.yml` runs `make dist` and `make test-dist` when a `v*` tag is pushed and attaches
-the zip to a GitHub pre-release.
+### Releasing
+
+1. Add the changes to `CHANGELOG.md` under a new version heading and bump `KIDSOS_VERSION` in the Makefile.
+2. Commit, tag `vX.Y.Z` and push the tag (or let GitHub create the tag in the next step).
+3. Draft a new release on GitHub for that tag, paste the changelog entry, publish it.
+
+`.github/workflows/release.yml` runs `make dist` and `make test-dist` when a release is published and attaches
+the zip to it; it takes a few minutes, and a draft builds nothing until it is published.
 
 Not touched on an Onion update (verified in Onion's `install.sh`): `Roms/` with `favourite.json`,
 `Saves/` (where the kids boot screen lives as a theme override), `.tmp_update/config/` (so the kids keymap and

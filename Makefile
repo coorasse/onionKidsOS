@@ -87,9 +87,13 @@ $(TOOLCHAIN_DIR)/.build:
 	@test -d $(TOOLCHAIN_DIR) || git clone --depth 1 https://github.com/shauninman/union-miyoomini-toolchain.git $(TOOLCHAIN_DIR)
 	cd $(TOOLCHAIN_DIR) && docker build -t $(TOOLCHAIN_IMAGE) . && touch .build
 
+# the container runs as root; on Linux it would leave build/ unwritable for the host user, hence the chown
+CROSS_BUILD = docker run --rm -v "$(CURDIR)":/root/workspace $(TOOLCHAIN_IMAGE) /bin/bash -c \
+	'. /root/setup-env.sh && cd /root/workspace && make $(1) && chown -R $(shell id -u):$(shell id -g) build'
+
 miyoomini: $(TOOLCHAIN_DIR)/.build
-	docker run --rm -v "$(CURDIR)":/root/workspace $(TOOLCHAIN_IMAGE) /bin/bash -c \
-		'. /root/setup-env.sh && cd /root/workspace && make build/miyoomini/kidsos.elf'
+	@mkdir -p build
+	$(call CROSS_BUILD,build/miyoomini/kidsos.elf)
 
 # this rule runs inside the container, where CROSS_COMPILE and PREFIX are set
 build/miyoomini/kidsos.elf: $(COMMON) src/platform_miyoomini.c $(HEADERS)
@@ -107,8 +111,8 @@ pak: miyoomini
 
 # ---- Miyoo Mini Plus running OnionOS: the launcher replaces MainUI at boot ----
 onion: $(TOOLCHAIN_DIR)/.build
-	docker run --rm -v "$(CURDIR)":/root/workspace $(TOOLCHAIN_IMAGE) /bin/bash -c \
-		'. /root/setup-env.sh && cd /root/workspace && make build/onion/kidsos.elf'
+	@mkdir -p build
+	$(call CROSS_BUILD,build/onion/kidsos.elf)
 
 build/onion/kidsos.elf: $(COMMON) src/platform_onion.c src/coinmon.c src/coinlock.c $(HEADERS)
 	@mkdir -p build/onion
@@ -127,7 +131,7 @@ onion-dist: onion
 	cp onion/bootScreen.png $(DIST)/
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
-KIDSOS_VERSION = 0.1.0
+KIDSOS_VERSION = 0.1.1
 ONION_VERSION = 4.3.1-1
 ONION_SHA256 = 4739938e45688ade02d2c8947d4012345916d1ca04ab33f5b2b1949bf8e66166
 KIDSOS_ZIP = build/KidsOS-$(KIDSOS_VERSION)-onion$(ONION_VERSION).zip
