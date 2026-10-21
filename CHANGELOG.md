@@ -7,9 +7,17 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The Miyoo Mini Flip is supported, with the same zip and the same installation as the Mini Plus. Its volume
+  stops at the level of its original firmware, where the Mini Plus curve made the speaker distort.
 - A console left alone saves the game and switches off by itself after 2 minutes without a button press (plus
   one minute with the screen dark), so the battery isn't found flat. It uses Onion's own hibernate timer and
   doesn't run while charging. The time is set in the *KidsOS* app (1 to 30 minutes, or never).
+
+### Changed
+
+- KidsOS is built on [RedOnion](https://github.com/Amiga500/Onion) 4.4.0-beta (the Onion fork for the Mini Plus
+  and the Mini Flip) instead of Onion 4.3.1. Game Boy Advance games run on gpSP, because RedOnion has no
+  mGBA package.
 
 ## [0.1.2] - 2026-10-13
 
