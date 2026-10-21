@@ -21,6 +21,14 @@ if [ -f "$CONFIG/.disableStandby.kidsos" ]; then
 	rm -f "$CONFIG/.disableStandby" "$CONFIG/.disableStandby.kidsos" && echo "POWER back to standby"
 	touch /tmp/settings_changed
 fi
+lid=$CONFIG/flip/lidCloseAction
+if [ -f "$lid.kidsos-orig" ]; then
+	mv "$lid.kidsos-orig" "$lid" && echo "lid close action restored"
+	touch /tmp/settings_changed
+elif [ -f "$lid.kidsos-none" ]; then
+	rm -f "$lid" "$lid.kidsos-none" && echo "lid close action back to Onion's default"
+	touch /tmp/settings_changed
+fi
 if [ -f "$CONFIG/.sshState.kidsos" ]; then
 	rm -f "$CONFIG/.sshState" "$CONFIG/.sshState_" "$CONFIG/.sshState.kidsos" && echo "SSH back to Onion's default"
 fi

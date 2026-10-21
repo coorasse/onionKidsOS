@@ -45,6 +45,7 @@ over.
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
 there.
 POWER saves too and switches the console off; at the next power on the game is back where it was.
+On the Miyoo Mini Flip, closing the lid does the same.
 
 ## What the parent gets
 
@@ -74,7 +75,7 @@ things a parent needs: back to the kids screen and the arcade coins.
 | Left / Right | Pick a game |
 | A | Play |
 | MENU (in a game) | Save and go back to the row |
-| POWER | Save and switch off |
+| POWER, or closing the lid (Mini Flip) | Save and switch off |
 | SELECT (arcade games) | Insert a coin |
 | Volume + / - | Volume |
 | SELECT + START, hold 3 s | Parent: open Onion's menu |

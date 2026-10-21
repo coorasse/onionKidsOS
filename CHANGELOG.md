@@ -5,6 +5,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Mini Flip: closing the lid saves the game and switches the console off, like POWER does.
+
 ## [0.1.2] - 2026-10-13
 
 ### Added

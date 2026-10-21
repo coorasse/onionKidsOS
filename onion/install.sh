@@ -232,6 +232,28 @@ write_power_button() {
 	echo "POWER set to save and shutdown"
 }
 
+# On the Mini Flip, closing the lid suspends by default and the battery drains in the dark. Onion's Tweaks has
+# "Lid close action"; Shutdown saves the game like POWER does and switches the console off. The setting is a
+# number in a file, 1 is Shutdown; other devices never read it. A value the parent had is put back by uninstall.sh.
+write_lid() {
+	file="$CONFIG/flip/lidCloseAction"
+	if [ "$(cat "$file" 2> /dev/null)" = "1" ]; then
+		echo "lid close already set to shutdown"
+		return 0
+	fi
+	mkdir -p "$CONFIG/flip" || fail "cannot create the flip settings folder"
+	if [ ! -f "$file.kidsos-orig" ] && [ ! -f "$file.kidsos-none" ]; then
+		if [ -f "$file" ]; then
+			cp "$file" "$file.kidsos-orig" || fail "cannot back up the lid setting"
+		else
+			touch "$file.kidsos-none"
+		fi
+	fi
+	echo 1 > "$file" || fail "cannot set the lid close action"
+	touch /tmp/settings_changed
+	echo "lid close set to save and shutdown"
+}
+
 # SSH is Onion's dropbear, root without a password as Onion ships it, switched by the flag .sshState. Onion's
 # network check moves the flag aside at every boot with Wi-Fi off and runs before the startup hooks, so the
 # flag is put back on every boot: SSH then comes up as soon as Wi-Fi is on. With Wi-Fi already on the service
@@ -289,6 +311,7 @@ write_setup
 write_boot_screen
 write_retroarch_cfg
 write_power_button
+write_lid
 write_ssh
 # Onion bind-mounts the MainUI binary once per boot; drop the mount so the shim is picked up without a reboot
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null

@@ -312,6 +312,10 @@ check "RetroArch auto save state enforced",
 check "POWER tap set to save and shutdown (Onion's .disableStandby flag, marked as ours)",
       File.exist?("#{SYSDIR}/config/.disableStandby") && File.exist?("#{SYSDIR}/config/.disableStandby.kidsos") &&
       install_out.include?("POWER set to save and shutdown"), install_out
+check "lid close set to shutdown, original absent noted",
+      (File.read("#{SYSDIR}/config/flip/lidCloseAction").strip == "1" rescue false) &&
+      File.exist?("#{SYSDIR}/config/flip/lidCloseAction.kidsos-none") &&
+      install_out.include?("lid close set to save and shutdown"), install_out
 check "SSH flag set and marked as ours, dropbear not started while Wi-Fi is off",
       File.exist?("#{SYSDIR}/config/.sshState") && File.exist?("#{SYSDIR}/config/.sshState.kidsos") &&
         install_out.include?("SSH on") && !install_out.include?("SSH started") &&
@@ -398,6 +402,8 @@ check "uninstall.sh ran", out.include?("uninstalled"), out
 check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails back to default"), out
 check "uninstall.sh puts POWER back to standby", out.include?("POWER back to standby") &&
       !File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
+check "uninstall.sh puts the lid action back", out.include?("lid close action back to Onion's default") &&
+      !File.exist?("#{SYSDIR}/config/flip/lidCloseAction") && !File.exist?("#{SYSDIR}/config/flip/lidCloseAction.kidsos-none"), out
 check "uninstall.sh removes the SSH flag it set", out.include?("SSH back to Onion's default") &&
       !File.exist?("#{SYSDIR}/config/.sshState") && !File.exist?("#{SYSDIR}/config/.sshState.kidsos"), out
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out
@@ -444,6 +450,8 @@ FileUtils.cp("#{SYSDIR}/logs/runtime.log", "#{ROOT}/build/onion-test-logs/boot-r
 build_sd_card
 FileUtils.rm_f(KEYMAP)
 FileUtils.touch("#{SYSDIR}/config/.disableStandby")
+FileUtils.mkdir_p("#{SYSDIR}/config/flip")
+File.write("#{SYSDIR}/config/flip/lidCloseAction", "2\n")
 FileUtils.mkdir_p("#{SD}/kids")
 File.write("#{SD}/kids/settings.txt", "arcade_coins_per_day=10\nssh=0\n")
 ok, out = in_container(<<~SH)
@@ -457,6 +465,8 @@ check "keymap written with Onion's MainUI defaults", expected.all? { |s| install
 check "keymap removed again", !File.exist?(KEYMAP) && !File.exist?("#{KEYMAP}.kidsos-none")
 check "the parent's POWER setting is kept", out.include?("POWER already set to shutdown") &&
       File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
+check "the parent's lid setting comes back", (File.read("#{SYSDIR}/config/flip/lidCloseAction").strip == "2" rescue false) &&
+      out.include?("lid close action restored"), out
 check "ssh=0 in kids/settings.txt leaves SSH to Onion", out.include?("SSH left to Onion (ssh=0)") &&
       !File.exist?("#{SYSDIR}/config/.sshState") && !File.exist?("#{SYSDIR}/config/.sshState.kidsos"), out
 
