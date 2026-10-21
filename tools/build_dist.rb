@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# Builds the KidsOS zip that parents copy onto an empty SD card: the official Onion release with the kids
+# Builds the KidsOS zip that parents copy onto an empty SD card: the RedOnion release (the Onion fork that runs on the Mini Plus and the Mini Flip) with the kids
 # launcher added to the package that Onion's installer unpacks on the card (onion.pak), plus the boot hook that
 # keeps the launcher installed across Onion updates. Both of Onion's packages (onion.pak and retroarch.pak) are
 # repacked with fast LZMA2 and without the parts no kid will use, which makes the first boot a lot shorter.
@@ -16,8 +16,8 @@ abort "usage: #{$0} <kidsos version> <onion version> <onion zip sha256 | ->" unl
 ROOT = File.expand_path("..", __dir__)
 LAYER_SRC = File.join(ROOT, "build/onion/dist/.kidsos")
 CACHE = File.join(ROOT, "build/onion-release")
-ONION_ZIP = File.join(CACHE, "Onion-v#{ONION_VERSION}.zip")
-ONION_URL = "https://github.com/OnionUI/Onion/releases/download/v#{ONION_VERSION}/Onion-v#{ONION_VERSION}.zip"
+ONION_ZIP = File.join(CACHE, "RedOnion-v#{ONION_VERSION}.zip")
+ONION_URL = "https://github.com/Amiga500/Onion/releases/download/RedOnion-v#{ONION_VERSION}/RedOnion-v#{ONION_VERSION}.zip"
 WORK = File.join(ROOT, "build/dist")
 CARD = File.join(WORK, "card") # what the parent copies to the SD card
 PAK = "card/miyoo/app/.tmp_update/onion.pak"
@@ -124,7 +124,7 @@ NO_WIZARDS = <<-SH
 SH
 
 step "skipping Onion's first-boot guide and Package Manager"
-installer = File.read(INSTALL_SH)
+installer = File.read(INSTALL_SH, encoding: "UTF-8")
 unless installer.scan(WIZARDS).size == 1
   abort "Onion's install.sh changed: the guide and Package Manager block is not there once"
 end
@@ -162,6 +162,26 @@ FileUtils.cp(File.join(ROOT, "onion/startup.sh"), File.join(PAK_DIR, ".tmp_updat
 end
 File.write(File.join(PAK_DIR, ".kidsos/version.txt"), "#{KIDSOS_VERSION}\n")
 
+# The Mini Flip's amplifier distorts at the +3 dB that RedOnion's volume curve reaches; its stock firmware stops at
+# -3 dB. keymon (the volume keys) is rebuilt with that curve for the Flip (make build/onion/keymon, from
+# onion/patches/flip-volume-curve.patch) and runtime.sh starts the audio server at the same level on the Flip.
+step "making the Mini Flip volume curve match its stock firmware"
+FileUtils.cp(File.join(ROOT, "build/onion/keymon"), File.join(PAK_DIR, ".tmp_update/bin/keymon"))
+AUDIOSERVER_VOLUME = <<-'SH'
+    defvol=$(echo $(/customer/app/jsonval vol) | awk '{ printf "%.0f\n", 48 * (log(1 + $1) / log(10)) - 60 }')
+SH
+FLIP_AUDIOSERVER_VOLUME = <<-'SH' + AUDIOSERVER_VOLUME.gsub(/^/, "    ") + "    fi\n"
+    if [ "$DEVICE_ID" = "285" ]; then
+        # KidsOS: the Mini Flip's stock volume curve, which stops at -3 dB
+        defvol=$(echo $(/customer/app/jsonval vol) | awk '{ printf "%d\n", int(57 * $1 / 20) - 60 }')
+    else
+SH
+runtime = File.join(PAK_DIR, ".tmp_update/runtime.sh")
+script = File.read(runtime, encoding: "UTF-8")
+abort "RedOnion's runtime.sh changed: the audio server volume line is not there once" unless script.scan(AUDIOSERVER_VOLUME).size == 1
+File.write(runtime, script.sub(AUDIOSERVER_VOLUME) { FLIP_AUDIOSERVER_VOLUME })
+system("sh", "-n", runtime) || abort("patched runtime.sh has a syntax error")
+
 # Onion's installer creates system.json from the template in the pak and applies the theme named there before it
 # reboots, and the per-device mirror it writes at shutdown keeps that choice. The kids hook runs only at the
 # next boot, too late to change it. So the theme ships in the pak next to Onion's and the template points at it.
@@ -180,7 +200,7 @@ end
 # the Package Manager copies them onto the card (Emu/<TAG> and Roms/<TAG>), so Onion lists them as installed
 # at the first boot and keeps them up to date like any other package.
 PREINSTALLED_EMUS = ["Nintendo - Game Boy (Gambatte)", "Nintendo - Game Boy Color (Gambatte)",
-                     "Nintendo - GBA (mGBA)", "Nintendo - NES (FCEUmm)",
+                     "Nintendo - GBA (gpSP)", "Nintendo - NES (FCEUmm)",
                      "Nintendo - SNES (Beetle Supafaust)", "Nintendo - DS (Drastic)",
                      "SNK - Neo Geo (fbalpha2012 neogeo)"]
 PACKAGES = "App/PackageManager/data/Emu"
@@ -220,14 +240,14 @@ end
 step "repacking onion.pak"
 repack("pak", PAK,
        %w[.kidsos/kidsos.elf .kidsos/install.sh .kidsos/startup.sh .tmp_update/startup/kidsos.sh .tmp_update/runtime.sh
-          .tmp_update/bin/MainUI-354-clean .tmp_update/bin/gameSwitcher App/PackageManager/launch.sh] +
+          .tmp_update/bin/MainUI-354-clean .tmp_update/bin/MainUI-285-clean .tmp_update/bin/gameSwitcher App/PackageManager/launch.sh] +
        ["#{BOOT_OVERRIDE}/bootScreen.png", "#{THEME}/config.json", ".tmp_update/res/miyoo354_system.json"] +
          tags.flat_map { |t| ["Emu/#{t}/config.json", "Roms/#{t}"] },
        DROPPED["pak"])
 step "repacking retroarch.pak"
 repack("ra", RA_PAK,
        %w[RetroArch/retroarch RetroArch/.retroarch/cores/fbneo_libretro.so RetroArch/.retroarch/cores/fbalpha2012_neogeo_libretro.so
-          RetroArch/.retroarch/cores/gambatte_libretro.so RetroArch/.retroarch/cores/mgba_libretro.so],
+          RetroArch/.retroarch/cores/gambatte_libretro.so RetroArch/.retroarch/cores/gpsp_libretro.so],
        DROPPED["ra"])
 
 # Onion's first boot creates a 128 MB swap file on the card with dd, half a minute at the card's speed. The file
@@ -240,9 +260,9 @@ system("docker", "run", "--rm", "-v", "#{CARD}:/work", "alpine:3.20", "sh", "-c"
 abort "cachefile has no swap header" unless File.binread(SWAP, 10, 4096 - 10) == "SWAPSPACE2"
 
 step "writing the card root files"
-File.write(File.join(CARD, "kidsos_version.txt"), "KidsOS #{KIDSOS_VERSION} on Onion v#{ONION_VERSION}\n")
+File.write(File.join(CARD, "kidsos_version.txt"), "KidsOS #{KIDSOS_VERSION} on RedOnion v#{ONION_VERSION}\n")
 File.write(File.join(CARD, "KIDSOS-README.txt"), <<~TXT)
-  KidsOS #{KIDSOS_VERSION} for the Miyoo Mini Plus (built on Onion v#{ONION_VERSION})
+  KidsOS #{KIDSOS_VERSION} for the Miyoo Mini Plus (built on RedOnion v#{ONION_VERSION})
 
   Copy everything in this folder, hidden folders included, to the root of an empty SD card
   formatted as FAT32, put the card in the Miyoo and turn it on.

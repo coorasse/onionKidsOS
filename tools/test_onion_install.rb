@@ -32,7 +32,7 @@ RUNTIME_SH = if DIST_ZIP
              end
 STUBS = File.join(WORK, "stubs")
 IMAGE = "busybox:1.37.0"
-MAINUIS = %w[MainUI-283-clean MainUI-283-expert MainUI-354-clean MainUI-354-expert]
+MAINUIS = %w[MainUI-283-clean MainUI-283-expert MainUI-285-clean MainUI-285-expert MainUI-354-clean MainUI-354-expert]
 KEYMAP = File.join(SYSDIR, "config/keymap.json")
 BOOT_OVERRIDE = File.join(SD, "Saves/CurrentProfile/theme/skin/extra/bootScreen.png")
 INSTALL_LOG = File.join(SD, ".kidsos/install.log")
@@ -246,7 +246,7 @@ if DIST_ZIP
   check "KidsOS theme in the pak next to Onion's themes, so the installer's theme step finds it",
         (FileUtils.identical?("#{THEME}/config.json", "#{ROOT}/onion/theme/KidsOS by coorasse/config.json") rescue false)
   check "system.json templates in the pak select the KidsOS theme, so the first boot starts with it",
-        Dir.glob("#{SYSDIR}/res/miyoo*_system.json").then { |t| t.size == 2 && t.all? { |f| File.read(f).include?(KIDS_THEME_KEY) } }
+        Dir.glob("#{SYSDIR}/res/miyoo*_system.json").then { |t| t.size == 3 && t.all? { |f| File.read(f).include?(KIDS_THEME_KEY) } }
   %w[GB GBC GBA FC SFC NEOGEO].each do |tag|
     package = Dir.glob("#{SD}/App/PackageManager/data/Emu/*/Emu/#{tag}").first
     check "#{tag} emulator preinstalled as the Package Manager would install it",

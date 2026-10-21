@@ -38,7 +38,10 @@ onion/                 device-side scripts: launch.sh, game.sh, covers.sh (box a
                        hook), uninstall.sh
 pak/                   MinUI pak launch script
 sdcard/, sdcard-onion/ fake SD cards for development (empty roms + generated placeholder art)
-tools/build_dist.rb    builds the KidsOS zip from the official Onion release (make dist)
+onion/patches/         patches to RedOnion's own sources; flip-volume-curve.patch gives the Mini Flip its stock volume curve
+                       (make build/onion/keymon rebuilds keymon with it, make dist swaps it into the zip)
+                       Temporary: remove it when a RedOnion release has Amiga500/Onion#293 (see the TODO in the Makefile)
+tools/build_dist.rb    builds the KidsOS zip from the RedOnion release (make dist)
 tools/test_onion_install.rb  boots Onion's runtime.sh in Docker against a fake card (make test-onion, make test-dist)
 tools/test_first_install.rb  plays Onion's installer from the zip on a fresh card (make test-first-install)
 tools/test_covers.rb   runs covers.sh in Docker against a fake card and a fake thumbnail server (make test-covers)
@@ -243,7 +246,7 @@ If the screen stays black after a game:
 `make test-onion` boots Onion's real `runtime.sh` in a BusyBox container against a fake SD card with
 the shims installed and checks the whole sequence (kid UI, game launch, GameSwitcher overlay during the
 game, GameSwitcher skipped afterwards, exit to Onion, keymap, stale shim update, uninstall) without the
-device. It clones Onion into `../reference/Onion` on first use.
+device. It clones RedOnion into `../reference/RedOnion` on first use.
 
 ### OnionOS with the card in the Mac
 

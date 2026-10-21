@@ -1,0 +1,24 @@
+diff --git a/src/common/system/volume.h b/src/common/system/volume.h
+index 8ff93443..2267f5b4 100644
+--- a/src/common/system/volume.h
++++ b/src/common/system/volume.h
+@@ -5,6 +5,7 @@
+ #include <math.h>
+ #include <sys/ioctl.h>
+ 
++#include "system/device_model.h"
+ #include "utils/file.h"
+ #include "utils/log.h"
+ 
+@@ -80,6 +81,11 @@ static inline int volume_toRaw(int volume)
+     volume = volume_clamp(volume);
+     if (volume == 0)
+         return 0;
++    // The Mini Flip's amplifier is hotter than the Mini Plus one: its stock
++    // firmware maps the steps linearly and stops at -3 dB, while the curve
++    // below reaches +3 dB and distorts the loudest steps.
++    if (DEVICE_ID == MIYOO285)
++        return 57 * volume / 20;
+     return round(48 * log10(1 + volume));
+ }
+ 

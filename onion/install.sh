@@ -281,7 +281,7 @@ sh -n "$RT" || fail "runtime.sh has a syntax error, restore it first"
 
 # the launcher exits 0 after writing /tmp/cmd_to_run.sh like MainUI does; it only falls through to the
 # real MainUI when it asked for that itself (parent menu "Exit to Onion") or crashed (launch.sh sets the flag)
-for ui in MainUI-283-clean MainUI-283-expert MainUI-354-clean MainUI-354-expert; do
+for ui in MainUI-283-clean MainUI-283-expert MainUI-285-clean MainUI-285-expert MainUI-354-clean MainUI-354-expert; do
 	write_shim "$ui" "	$KIDS/launch.sh
 	[ -f /tmp/kidsos_exit ] || exit 0"
 done
