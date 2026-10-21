@@ -2,7 +2,8 @@
 
 How KidsOS is built and tested. For installing and using it, see the [README](../README.md).
 
-KidsOS replaces the user interface of OnionOS on the Miyoo Mini Plus and reuses everything else. On the
+KidsOS replaces the user interface of RedOnion (the Onion fork for the Mini Plus and the Mini Flip) and reuses
+everything else. On the
 Miyoo Mini every "OS" is a payload on the SD card that the stock firmware boots into: Onion's boot script
 (`.tmp_update/runtime.sh`) starts its MainUI, runs the game MainUI chose, shows the GameSwitcher, repeats.
 MainUI is a closed Miyoo binary, so KidsOS puts a shell shim in its place that starts the kids launcher;
@@ -26,15 +27,15 @@ src/
   gfx.c                drawing helpers on SDL surfaces (rounded rects, scaling, text)
   platform.h           what a platform must provide (video, input, launching a game)
   platform_desktop.c   macOS/Linux implementation with SDL2
-  platform_onion.c     Miyoo Mini Plus with OnionOS (SDL 1.2, 32 bit screen)
+  platform_onion.c     Miyoo Mini Plus and Mini Flip with (Red)Onion (SDL 1.2, 32 bit screen)
   platform_miyoomini.c Miyoo Mini Plus with MinUI (SDL 1.2, 16 bit screen)
-onion/app/KidsOS/      the app in Onion's Apps tab (back to the kids screen, coins per day), built on Onion's prompt and infoPanel
+onion/app/KidsOS/      the app in Onion's Apps tab (back to the kids screen, coins per day, idle switch-off), built on Onion's prompt and infoPanel
 onion/theme/           the Onion theme in the KidsOS colours, installed next to Onion's themes and set as the default once
 onion/bootScreen.png   the boot picture, installed as a theme override so it wins over every theme
 assets/                Fredoka Bold, the font of the kids screens (OFL, see onion/theme/*/OFL.txt)
 onion/                 device-side scripts: launch.sh, game.sh, covers.sh (box art for favourites over Wi-Fi),
                        install.sh (shims MainUI/GameSwitcher, kids keymap, power button, RetroArch
-                       auto save, boot hook), startup.sh (the boot
+                       auto save, idle shutdown, boot hook), startup.sh (the boot
                        hook), uninstall.sh
 pak/                   MinUI pak launch script
 sdcard/, sdcard-onion/ fake SD cards for development (empty roms + generated placeholder art)
