@@ -5,6 +5,12 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- A console left alone saves the game and switches off by itself after 2 minutes without a button press (plus
+  one minute with the screen dark), so the battery isn't found flat. It uses Onion's own hibernate timer and
+  doesn't run while charging. The time is set in the *KidsOS* app (1 to 30 minutes, or never).
+
 ## [0.1.2] - 2026-10-13
 
 ### Added

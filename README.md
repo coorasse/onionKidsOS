@@ -45,6 +45,8 @@ over.
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
 there.
 POWER saves too and switches the console off; at the next power on the game is back where it was.
+A console nobody touches for 2 minutes does the same by itself (the screen goes dark first), so a forgotten
+one doesn't run the battery flat. Not while it's charging.
 
 ## What the parent gets
 
@@ -208,8 +210,8 @@ the arcade tiles fade. The next day the coins are back. The console has no clock
 Wi-Fi "the next day" means the next time it's turned on.
 
 To change the number on the console: hold **SELECT + START**, open the *Apps* tab and start **KidsOS**. You
-can set the coins per day (3 to 30, or no limit), hand out today's coins again, and go back to the kids
-screen.
+can set the coins per day (3 to 30, or no limit), hand out today's coins again, set after how many idle
+minutes the console switches itself off (1 to 30, or never) and go back to the kids screen.
 
 <p align="center">
   <img src="docs/images/kidsos-coins.png" width="400" alt="Choosing the coins per day">

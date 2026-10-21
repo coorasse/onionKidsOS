@@ -232,6 +232,17 @@ write_power_button() {
 	echo "POWER set to save and shutdown"
 }
 
+# A console forgotten by a kid must not run the battery flat. Onion has the timer already: "hibernate" in
+# system.json, the minutes without a button press after which the screen goes dark and, a minute later, the same
+# save-and-shutdown as a POWER tap happens (not while charging). Onion's default is 5; the first install sets
+# 2 and a value the parent chooses later, in the KidsOS app or Onion's Tweaks, stays.
+write_idle_shutdown() {
+	[ -f "$CONFIG/hibernate-set" ] && return 0
+	[ -f /mnt/SDCARD/system.json ] || return 0
+	set_system hibernate 2 || fail "cannot set the idle shutdown"
+	touch "$CONFIG/hibernate-set" && echo "idle shutdown set to 2 minutes"
+}
+
 # SSH is Onion's dropbear, root without a password as Onion ships it, switched by the flag .sshState. Onion's
 # network check moves the flag aside at every boot with Wi-Fi off and runs before the startup hooks, so the
 # flag is put back on every boot: SSH then comes up as soon as Wi-Fi is on. With Wi-Fi already on the service
@@ -289,6 +300,7 @@ write_setup
 write_boot_screen
 write_retroarch_cfg
 write_power_button
+write_idle_shutdown
 write_ssh
 # Onion bind-mounts the MainUI binary once per boot; drop the mount so the shim is picked up without a reboot
 umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null

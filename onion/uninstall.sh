@@ -21,6 +21,14 @@ if [ -f "$CONFIG/.disableStandby.kidsos" ]; then
 	rm -f "$CONFIG/.disableStandby" "$CONFIG/.disableStandby.kidsos" && echo "POWER back to standby"
 	touch /tmp/settings_changed
 fi
+if [ -f "$CONFIG/hibernate-set" ]; then
+	for json in /mnt/SDCARD/system.json "$CONFIG"/system/*.json; do
+		[ -f "$json" ] || continue
+		sed -i 's#"hibernate":[[:space:]]*[^,}]*#"hibernate":\t5#' "$json"
+	done
+	touch /tmp/settings_changed
+	rm -f "$CONFIG/hibernate-set" && echo "idle shutdown back to Onion's default"
+fi
 if [ -f "$CONFIG/.sshState.kidsos" ]; then
 	rm -f "$CONFIG/.sshState" "$CONFIG/.sshState_" "$CONFIG/.sshState.kidsos" && echo "SSH back to Onion's default"
 fi
