@@ -132,16 +132,31 @@ onion-dist: onion
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
 KIDSOS_VERSION = 0.1.2
-ONION_VERSION = 4.3.1-1
-ONION_SHA256 = 4739938e45688ade02d2c8947d4012345916d1ca04ab33f5b2b1949bf8e66166
+# RedOnion release suffix (RedOnion-v<suffix>.zip) and the commit it was built from; the first build prints the sha256 to pin
+ONION_VERSION = 4.4.0-beta-20261020-96c0ee74
+ONION_SHA256 = 80b1035146374777511a9d2450ef78cc3118d8c96aaeb02aa835ce67b8d26ebe
+ONION_COMMIT = 96c0ee74c8d6b387c5f53d62691ba86238a6e2cc
+# the RedOnion sources the tests boot runtime.sh from; point ONION_REPO at a local checkout to use it
+ONION_REPO ?= ../reference/RedOnion
 KIDSOS_ZIP = build/KidsOS-$(KIDSOS_VERSION).zip
 
-dist: onion-dist
+# RedOnion's keymon with the Mini Flip volume curve (onion/patches): built from the pinned commit's sources.
+# TODO: remove this target, onion/patches/flip-volume-curve.patch and the runtime.sh/keymon steps in
+# tools/build_dist.rb once the pinned RedOnion release contains https://github.com/Amiga500/Onion/pull/293
+build/onion/keymon: onion/patches/flip-volume-curve.patch $(TOOLCHAIN_DIR)/.build $(ONION_REPO)
+	rm -rf build/redonion-src && mkdir -p build/redonion-src build/onion
+	git -C $(ONION_REPO) archive $(ONION_COMMIT) src include | tar -x -C build/redonion-src
+	patch -d build/redonion-src -p1 < onion/patches/flip-volume-curve.patch
+	docker run --rm -v "$(CURDIR)/build/redonion-src":/root/workspace $(TOOLCHAIN_IMAGE) /bin/bash -c \
+		'. /root/setup-env.sh && cd /root/workspace/src/keymon && make > /dev/null 2>&1; test -x keymon && chown -R $(shell id -u):$(shell id -g) /root/workspace'
+	cp build/redonion-src/src/keymon/keymon $@
+
+dist: onion-dist build/onion/keymon
 	ruby tools/build_dist.rb $(KIDSOS_VERSION) $(ONION_VERSION) $(ONION_SHA256)
 
 # boots the runtime.sh from the zip's onion.pak in BusyBox: the startup hook must install the shims by itself
-test-dist: ../reference/Onion
-	ruby tools/test_onion_install.rb ../reference/Onion --dist $(KIDSOS_ZIP)
+test-dist: $(ONION_REPO)
+	ruby tools/test_onion_install.rb $(ONION_REPO) --dist $(KIDSOS_ZIP)
 
 # plays Onion's installer from the zip on a fresh card: no screen may wait for a button before the reboot
 test-first-install:
@@ -187,11 +202,11 @@ recover:
 # runs onion/install.sh against a copy of Onion's SD layout in a BusyBox container and boots runtime.sh;
 # RUNTIME=/Volumes/<card>/.tmp_update/runtime.sh boots the one of a real card instead
 RUNTIME ?=
-test-onion: ../reference/Onion
-	ruby tools/test_onion_install.rb ../reference/Onion $(RUNTIME)
+test-onion: $(ONION_REPO)
+	ruby tools/test_onion_install.rb $(ONION_REPO) $(RUNTIME)
 
-../reference/Onion:
-	git clone --depth 1 https://github.com/onionui/Onion $@
+$(ONION_REPO):
+	git clone https://github.com/Amiga500/Onion $@ && git -C $@ checkout $(ONION_COMMIT)
 
 # runs onion/covers.sh in a BusyBox container against a fake card and a fake thumbnails.libretro.com
 test-covers:
@@ -199,7 +214,7 @@ test-covers:
 
 # restart the UI loop without rebooting: Onion's runtime.sh comes straight back to the kids launcher
 device-restart:
-	$(SSH) 'rm -f /tmp/kidsos_exit; killall MainUI MainUI-354-clean.real MainUI-354-expert.real kidsos.elf 2>/dev/null; true'
+	$(SSH) 'rm -f /tmp/kidsos_exit; killall MainUI MainUI-285-clean.real MainUI-285-expert.real MainUI-354-clean.real MainUI-354-expert.real kidsos.elf 2>/dev/null; true'
 
 device-log:
 	$(SSH) 'cat /mnt/SDCARD/.kidsos/kidsos.log; echo --- coinmon; tail -20 /mnt/SDCARD/.kidsos/coinmon.log 2>/dev/null; echo --- runtime; tail -40 /mnt/SDCARD/.tmp_update/logs/runtime.log 2>/dev/null'
