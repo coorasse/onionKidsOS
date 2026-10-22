@@ -5,6 +5,8 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
 ### Added
 
 - The Miyoo Mini Flip is supported, with the same zip and the same installation as the Mini Plus. Its volume
@@ -18,6 +20,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 - KidsOS is built on [RedOnion](https://github.com/Amiga500/Onion) 4.4.0-beta (the Onion fork for the Mini Plus
   and the Mini Flip) instead of Onion 4.3.1. Game Boy Advance games run on gpSP, because RedOnion has no
   mGBA package.
+
+### Fixed
+
+- `install.sh` on Linux finds the card with its full device paths, so the card is found and formatted correctly.
 
 ## [0.1.2] - 2026-10-13
 
@@ -62,7 +68,8 @@ launcher inside `onion.pak`.
 - Trimmed Onion packages for a faster first boot; Game Boy, Game Boy Color, GBA, NES, SNES, DS and Neo Geo
   preinstalled.
 
-[Unreleased]: https://github.com/coorasse/onionKidsOS/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/coorasse/onionKidsOS/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/coorasse/onionKidsOS/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/coorasse/onionKidsOS/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/coorasse/onionKidsOS/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/coorasse/onionKidsOS/releases/tag/v0.1.0
