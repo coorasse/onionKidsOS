@@ -5,12 +5,12 @@
   </picture>
 </p>
 
-# KidsOS for the Miyoo Mini Plus
+# KidsOS for the Miyoo Mini Plus and Mini Flip
 
-A Miyoo Mini Plus for small kids. Turn it on, pick a game, play. Nothing else.
+A Miyoo Mini Plus or Mini Flip for small kids. Turn it on, pick a game, play. Nothing else.
 
-KidsOS is [Onion](https://onionui.github.io/) with a different start screen. Onion still does all the real
-work: emulators, save states, Wi-Fi, box art.
+KidsOS is [RedOnion](https://github.com/Amiga500/Onion), the Onion fork that runs on the Mini Plus and the
+Mini Flip, with a different start screen. Onion still does all the real work: emulators, save states, Wi-Fi, box art.
 
 <p align="center">
   <img src="docs/images/kid-ui.png" width="400" alt="The kids screen">
@@ -45,6 +45,8 @@ over.
 Pressing MENU in a game saves it and goes back to the row. Next time the game offers to continue from
 there.
 POWER saves too and switches the console off; at the next power on the game is back where it was.
+A console nobody touches for 2 minutes does the same by itself (the screen goes dark first), so a forgotten
+one doesn't run the battery flat. Not while it's charging.
 
 ## What the parent gets
 
@@ -100,7 +102,8 @@ The better they get, the longer they can play.
 
 You need:
 
-- A **Miyoo Mini Plus**. The original Miyoo Mini should work too, but I haven't tried it.
+- A **Miyoo Mini Plus** or a **Miyoo Mini Flip**. The installation is the same for both, the console is
+  recognised by itself. The original Miyoo Mini should work too, but I haven't tried it.
 - A **microSD card**, 32 GB or more, from a known brand. The card that comes with the console is slow and
   unreliable.
 - A computer with a card reader.
@@ -208,8 +211,8 @@ the arcade tiles fade. The next day the coins are back. The console has no clock
 Wi-Fi "the next day" means the next time it's turned on.
 
 To change the number on the console: hold **SELECT + START**, open the *Apps* tab and start **KidsOS**. You
-can set the coins per day (3 to 30, or no limit), hand out today's coins again, and go back to the kids
-screen.
+can set the coins per day (3 to 30, or no limit), hand out today's coins again, set after how many idle
+minutes the console switches itself off (1 to 30, or never) and go back to the kids screen.
 
 <p align="center">
   <img src="docs/images/kidsos-coins.png" width="400" alt="Choosing the coins per day">
@@ -263,12 +266,16 @@ Copying a KidsOS zip onto the card brings it back.
 
 ## Going back to plain Onion
 
-Download [Onion](https://github.com/OnionUI/Onion/releases), copy its folders onto the card the same way,
+Download [Onion](https://github.com/OnionUI/Onion/releases) (or [RedOnion](https://github.com/Amiga500/Onion/releases), which is what KidsOS is built on), copy its folders onto the card the same way,
 and delete the hidden folder `.kidsos`. Games and saves stay.
 
 KidsOS leaves out the parts of Onion that aren't for kids and would make the first start much longer: ScummVM,
 the video player, Samba file sharing, the Ports collection, PICO-8, Amiga, EasyRPG, AdvanceMAME and the MAME
-arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder). Plain Onion has all of them again.
+arcade emulators. Arcade games run on Final Burn Neo (the `FBNEO` folder) and Game Boy Advance games on gpSP.
+Plain Onion has all of them again.
+
+On the Mini Flip the volume stops at the same level as in its original firmware: the Mini Plus curve would
+reach a level at which the Flip's amplifier distorts.
 
 ## Troubleshooting
 

@@ -131,7 +131,7 @@ onion-dist: onion
 	cp onion/bootScreen.png $(DIST)/
 
 # ---- The zip parents install: the official Onion release with the kids launcher inside its onion.pak ----
-KIDSOS_VERSION = 0.1.2
+KIDSOS_VERSION = 0.2.0
 # RedOnion release suffix (RedOnion-v<suffix>.zip) and the commit it was built from; the first build prints the sha256 to pin
 ONION_VERSION = 4.4.0-beta-20261020-96c0ee74
 ONION_SHA256 = 80b1035146374777511a9d2450ef78cc3118d8c96aaeb02aa835ce67b8d26ebe

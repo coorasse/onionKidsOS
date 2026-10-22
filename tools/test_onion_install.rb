@@ -46,7 +46,8 @@ ORIGINAL_SYSTEM_JSON = <<~JSON
   \t"theme":\t"/mnt/SDCARD/Themes/Silky by DiMo/",
   \t"language":\t"en.lang",
   \t"fontsize":\t24,
-  \t"wifi":\t0
+  \t"wifi":\t0,
+  \t"hibernate":\t5
   }
 JSON
 # what Onion's Tweaks app writes when the parent had remapped the MENU button
@@ -312,6 +313,9 @@ check "RetroArch auto save state enforced",
 check "POWER tap set to save and shutdown (Onion's .disableStandby flag, marked as ours)",
       File.exist?("#{SYSDIR}/config/.disableStandby") && File.exist?("#{SYSDIR}/config/.disableStandby.kidsos") &&
       install_out.include?("POWER set to save and shutdown"), install_out
+check "idle shutdown set to 2 minutes in system.json and its per-device mirror",
+      install_out.include?("idle shutdown set to 2 minutes") &&
+        [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"hibernate":\t2}) }, install_out
 check "SSH flag set and marked as ours, dropbear not started while Wi-Fi is off",
       File.exist?("#{SYSDIR}/config/.sshState") && File.exist?("#{SYSDIR}/config/.sshState.kidsos") &&
         install_out.include?("SSH on") && !install_out.include?("SSH started") &&
@@ -327,6 +331,7 @@ check "theme left alone", second.include?("KidsOS theme already installed") && !
 check "RetroArch config left alone", second.include?("thumbnails already enabled") && events.count { |l| l == "patch_ra_cfg /tmp/kidsos_ra.cfg" } == 1, second
 check "power button left alone", second.include?("POWER already set to shutdown"), second
 check "SSH left alone", second.include?("SSH already on"), second
+check "idle shutdown left alone", !second.include?("idle shutdown set"), second
 ok, out = in_container(<<~SH)
   mv config/.sshState config/.sshState_
   sed -i 's/\*) echo 0/wifi) echo 1 ;; *) echo 0/' /customer/app/jsonval
@@ -360,7 +365,8 @@ if DIST_ZIP
 end
 
 puts "== the settings app: Onion's prompt answered by a script"
-File.write("#{SD}/prompt-answers", "1\n2\n2\n3\n") # change coins -> pick 5 -> give coins back -> stay in Onion
+# change coins -> pick 5 -> give coins back -> change idle switch-off -> pick 10 minutes -> stay in Onion
+File.write("#{SD}/prompt-answers", "1\n2\n2\n3\n4\n5\n")
 FileUtils.mkdir_p("#{SD}/kids")
 File.write("#{SD}/kids/coins.txt", "1970-01-18 4\n")
 stub("#{SYSDIR}/bin/prompt", "a=$(head -1 /mnt/SDCARD/prompt-answers); sed -i 1d /mnt/SDCARD/prompt-answers; exit $a", log_as: "prompt")
@@ -375,7 +381,11 @@ check "staying in Onion keeps the exit flag", out.include?("still in Onion"), ou
 check "app offered the current allowance", app_events.any? { |l| l.start_with?("prompt -t KidsOS -m Arcade coins per day: 10") }, app_events.join("\n")
 check "app wrote the chosen allowance", (File.read("#{SD}/kids/settings.txt").include?("arcade_coins_per_day=5") rescue false)
 check "app gave today's coins back", !File.exist?("#{SD}/kids/coins.txt")
-check "app confirmed with infoPanel", app_events.count { |l| l.start_with?("infoPanel -t KidsOS") } == 2, app_events.join("\n")
+check "app confirmed with infoPanel", app_events.count { |l| l.start_with?("infoPanel -t KidsOS") } == 3, app_events.join("\n")
+check "app showed the idle switch-off set by the installer", app_events.any? { |l| l.include?("Switches off after 2 min idle") }, app_events.join("\n")
+check "app wrote the chosen idle time to system.json and its per-device mirror, other keys untouched",
+      [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"hibernate":\t10}) } &&
+        File.read(SYSTEM_JSON).include?(%Q{"fontsize":\t24}), File.read(SYSTEM_JSON)
 File.write("#{SD}/prompt-answers", "0\n")
 ok, out = in_container(<<~SH)
   touch /tmp/kidsos_exit
@@ -398,6 +408,8 @@ check "uninstall.sh ran", out.include?("uninstalled"), out
 check "uninstall.sh switches the thumbnails off again", out.include?("thumbnails back to default"), out
 check "uninstall.sh puts POWER back to standby", out.include?("POWER back to standby") &&
       !File.exist?("#{SYSDIR}/config/.disableStandby") && !File.exist?("#{SYSDIR}/config/.disableStandby.kidsos"), out
+check "uninstall.sh puts the idle shutdown back to Onion's 5 minutes", out.include?("idle shutdown back to Onion's default") &&
+      [SYSTEM_JSON, DEVICE_JSON].all? { |f| File.read(f).include?(%Q{"hibernate":\t5}) }, out
 check "uninstall.sh removes the SSH flag it set", out.include?("SSH back to Onion's default") &&
       !File.exist?("#{SYSDIR}/config/.sshState") && !File.exist?("#{SYSDIR}/config/.sshState.kidsos"), out
 check "uninstall.sh removes the startup hook", out.include?("startup hook removed") && !File.exist?("#{SYSDIR}/startup/kidsos.sh"), out

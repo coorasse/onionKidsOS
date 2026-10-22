@@ -262,7 +262,7 @@ abort "cachefile has no swap header" unless File.binread(SWAP, 10, 4096 - 10) ==
 step "writing the card root files"
 File.write(File.join(CARD, "kidsos_version.txt"), "KidsOS #{KIDSOS_VERSION} on RedOnion v#{ONION_VERSION}\n")
 File.write(File.join(CARD, "KIDSOS-README.txt"), <<~TXT)
-  KidsOS #{KIDSOS_VERSION} for the Miyoo Mini Plus (built on RedOnion v#{ONION_VERSION})
+  KidsOS #{KIDSOS_VERSION} for the Miyoo Mini Plus and Mini Flip (built on RedOnion v#{ONION_VERSION})
 
   Copy everything in this folder, hidden folders included, to the root of an empty SD card
   formatted as FAT32, put the card in the Miyoo and turn it on.
