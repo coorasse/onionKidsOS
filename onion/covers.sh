@@ -36,6 +36,7 @@ systems_of() {
 	MD) echo "Sega - Mega Drive - Genesis" ;;
 	MS) echo "Sega - Master System - Mark III" ;;
 	MSX) echo "Microsoft - MSX" ;;
+	N64) echo "Nintendo - Nintendo 64" ;;
 	NDS) echo "Nintendo - Nintendo DS" ;;
 	NGP) printf '%s\n' "SNK - Neo Geo Pocket Color" "SNK - Neo Geo Pocket" ;;
 	PCE) printf '%s\n' "NEC - PC Engine - TurboGrafx 16" "NEC - PC Engine CD - TurboGrafx-CD" ;;
